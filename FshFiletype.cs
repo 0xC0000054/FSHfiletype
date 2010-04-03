@@ -54,7 +54,10 @@ namespace FSHfiletype
             {
                 loadimage = new FSHImage(input);
                 bool combinealpha = true;
-                headdir = loadimage.Header.dirID;
+                if (Encoding.ASCII.GetString(loadimage.Header.dirID) != "G264")
+                {
+                    headdir = loadimage.Header.dirID;
+                }
                 if (Encoding.ASCII.GetString(loadimage.Header.dirID) == "G315")
                 {
                     combinealpha = false;
