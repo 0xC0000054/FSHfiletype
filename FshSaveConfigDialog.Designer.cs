@@ -38,6 +38,7 @@ namespace FSHfiletype
             this.Fshtype = new System.Windows.Forms.ComboBox();
             this.genmipBox = new System.Windows.Forms.CheckBox();
             this.Fshtypegb = new System.Windows.Forms.GroupBox();
+            this.Fshwritecompcb = new System.Windows.Forms.CheckBox();
             this.Alphagb.SuspendLayout();
             this.Fshtypegb.SuspendLayout();
             this.SuspendLayout();
@@ -47,12 +48,12 @@ namespace FSHfiletype
             this.Alphagb.Controls.Add(this.origAlpha);
             this.Alphagb.Controls.Add(this.imgtransalphaRadio);
             this.Alphagb.Controls.Add(this.genmapRadio);
-            this.Alphagb.Location = new System.Drawing.Point(3, 140);
+            this.Alphagb.Location = new System.Drawing.Point(4, 163);
             this.Alphagb.Name = "Alphagb";
             this.Alphagb.Size = new System.Drawing.Size(200, 100);
             this.Alphagb.TabIndex = 29;
             this.Alphagb.TabStop = false;
-            this.Alphagb.Text = Properties.Resources.AlphagbText;
+            this.Alphagb.Text = "Alpha";
             // 
             // origAlpha
             // 
@@ -142,10 +143,22 @@ namespace FSHfiletype
             this.Fshtypegb.TabStop = false;
             this.Fshtypegb.Text = "Fsh Type";
             // 
+            // Fshwritecompcb
+            // 
+            this.Fshwritecompcb.AutoSize = true;
+            this.Fshwritecompcb.Location = new System.Drawing.Point(13, 140);
+            this.Fshwritecompcb.Name = "Fshwritecompcb";
+            this.Fshwritecompcb.Size = new System.Drawing.Size(127, 17);
+            this.Fshwritecompcb.TabIndex = 32;
+            this.Fshwritecompcb.Text = "Fshwrite compression";
+            this.Fshwritecompcb.UseVisualStyleBackColor = true;
+            this.Fshwritecompcb.CheckedChanged += new System.EventHandler(this.Fshwritecompcb_CheckedChanged);
+            // 
             // FshSaveConfigDialog
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.Fshwritecompcb);
             this.Controls.Add(this.Fshtypegb);
             this.Controls.Add(this.genmipBox);
             this.Controls.Add(this.Alphagb);
@@ -172,5 +185,6 @@ namespace FSHfiletype
         internal System.Windows.Forms.ComboBox Fshtype;
         internal System.Windows.Forms.CheckBox genmipBox;
         private System.Windows.Forms.GroupBox Fshtypegb;
+        private System.Windows.Forms.CheckBox Fshwritecompcb;
     }
 }

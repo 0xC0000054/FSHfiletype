@@ -32,6 +32,7 @@ namespace FSHfiletype
                 dirnameBox.Text = token.Dirname;
                 genmipBox.Checked = token.Genmip;
                 genmipBox.Enabled = token.GenmipEnabled;
+                Fshwritecompcb.Checked = token.FshwriteComp;
             }
             else
             {
@@ -42,6 +43,7 @@ namespace FSHfiletype
                 dirnameBox.Text = "FiSH";
                 genmipBox.Checked = true;
                 genmipBox.Enabled = false;
+                Fshwritecompcb.Checked = true;
             }
         }
         protected override void InitTokenFromWidget()
@@ -52,6 +54,7 @@ namespace FSHfiletype
             ((FshSaveConfigToken)token).OrigAlpha = origAlpha.Checked;
             ((FshSaveConfigToken)token).Genmip = genmipBox.Checked;
             ((FshSaveConfigToken)token).Fshtype = Fshtype.SelectedIndex;
+            ((FshSaveConfigToken)token).FshwriteComp = Fshwritecompcb.Checked;
         }
 
         private void Alpha_CheckedChanged(object sender, EventArgs e)
@@ -165,6 +168,11 @@ namespace FSHfiletype
                 }
             }
             base.OnLoad(e);
+        }
+
+        private void Fshwritecompcb_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateToken();
         }
 
 
