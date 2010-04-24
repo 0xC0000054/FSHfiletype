@@ -138,7 +138,7 @@
   </ItemGroup>
   <PropertyGroup>
     <PostBuildEvent>Copy "$(TargetPath)" "C:\Program Files\Paint.NET\FileTypes" /y
-copy "$(TargetDir)$(TargetName).pdb" "C:\Program Files\Paint.NET\FileTypes" /y
+if $(ConfigurationName) == Debug copy "$(TargetDir)$(TargetName).pdb" "C:\Program Files\Paint.NET\FileTypes" /y
 </PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
