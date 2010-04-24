@@ -138,22 +138,39 @@ namespace FSHfiletype
             {
                 throw new ArgumentException("The bitmap and alpha must be equal size");
             }
-            BitmapData colordata = colorbmp.LockBits(new Rectangle(0, 0, colorbmp.Width, colorbmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            BitmapData alphadata = bmpalpha.LockBits(new Rectangle(0, 0, bmpalpha.Width, bmpalpha.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            if (colorbmp.PixelFormat != PixelFormat.Format32bppArgb && colorbmp.PixelFormat != PixelFormat.Format24bppRgb)
+            {
+                throw new ArgumentException("The color bitmap must be either 24-bit or 32-bit");
+            }
+
+            if (colorbmp.PixelFormat == PixelFormat.Format24bppRgb)
+            { 
+                colorbmp = colorbmp.Clone(new Rectangle(0, 0, colorbmp.Width, colorbmp.Height), PixelFormat.Format32bppArgb);
+            }
+
+            /*if (bmpalpha.PixelFormat != PixelFormat.Format32bppArgb)
+            {
+                bmpalpha = bmpalpha.Clone(new Rectangle(0, 0, bmpalpha.Width, bmpalpha.Height), PixelFormat.Format32bppArgb);
+            }*/
+
+            BitmapData colordata = colorbmp.LockBits(new Rectangle(0, 0, colorbmp.Width, colorbmp.Height), ImageLockMode.ReadOnly, colorbmp.PixelFormat);
+            BitmapData alphadata = bmpalpha.LockBits(new Rectangle(0, 0, bmpalpha.Width, bmpalpha.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
             BitmapData bdata = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
             IntPtr scan0 = bdata.Scan0;
+            int bpp = colorbmp.PixelFormat == PixelFormat.Format24bppRgb ? 3 : 4; // the bits per pixel of the image (3 for 24-bit, 4 for 32-bit)
             unsafe
             {
                 byte* clrdata = (byte*)(void*)colordata.Scan0;
                 byte* aldata = (byte*)(void*)alphadata.Scan0;
                 byte* destdata = (byte*)(void*)scan0;
                 int offset = bdata.Stride - image.Width * 4;
-                int clroffset = colordata.Stride - image.Width * 4;
-                int aloffset = alphadata.Stride - image.Width * 4;
+                int clroffset = colordata.Stride - image.Width * bpp;
+                int aloffset = alphadata.Stride - image.Width * 3;
                 for (int y = 0; y < image.Height; y++)
                 {
                     for (int x = 0; x < image.Width; x++)
                     {
+
                         destdata[3] = dxt1 ? (byte)255 : aldata[0];
                         destdata[0] = clrdata[0];
                         destdata[1] = clrdata[1];
@@ -161,8 +178,8 @@ namespace FSHfiletype
 
 
                         destdata += 4;
-                        clrdata += 4;
-                        aldata += 4;
+                        clrdata += bpp;
+                        aldata += 3;
                     }
                     destdata += offset;
                     clrdata += clroffset;
@@ -266,7 +283,7 @@ namespace FSHfiletype
                     ms.Write(BitConverter.GetBytes(bmplist.Count), 0, 4); // write the number of bitmaps in the list
                     if (headdir != null)
                     {
-                        ms.Write(headdir, 0, 4);
+                        ms.Write(headdir, 0, 4); // override the header directory id (eg. G315 - emergency lights)
                     }
                     else
                     {
