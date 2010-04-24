@@ -24,6 +24,7 @@ namespace FSHfiletype
         internal RadioButton imgtransalphaRadio;
         internal CheckBox genmipBox;
         private GroupBox Alphagb;
+        private CheckBox Fshwritecompcb;
         private OpenFileDialog openFileDialog1;
 
         public QfsSaveConfigDialog()
@@ -46,6 +47,7 @@ namespace FSHfiletype
                 dirnameBox.Text = token.Dirname;
                 genmipBox.Checked = token.Genmip;
                 genmipBox.Enabled = token.GenmipEnabled;
+                Fshwritecompcb.Checked = token.FshwriteComp;
             }
             else
             {
@@ -56,6 +58,7 @@ namespace FSHfiletype
                 dirnameBox.Text = "FiSH";
                 genmipBox.Checked = true;
                 genmipBox.Enabled = false;
+                Fshwritecompcb.Checked = true;
             }
         }
         protected override void InitTokenFromWidget()
@@ -66,7 +69,9 @@ namespace FSHfiletype
             ((FshSaveConfigToken)token).OrigAlpha = origAlpha.Checked;
             ((FshSaveConfigToken)token).Genmip = genmipBox.Checked;
             ((FshSaveConfigToken)token).Fshtype = Fshtype.SelectedIndex;
+            ((FshSaveConfigToken)token).FshwriteComp = Fshwritecompcb.Checked;
         }
+
         private void InitializeComponent()
         {
             this.Fshtype = new System.Windows.Forms.ComboBox();
@@ -79,6 +84,7 @@ namespace FSHfiletype
             this.fshtypelbl = new System.Windows.Forms.Label();
             this.genmipBox = new System.Windows.Forms.CheckBox();
             this.Alphagb = new System.Windows.Forms.GroupBox();
+            this.Fshwritecompcb = new System.Windows.Forms.CheckBox();
             this.Alphagb.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -178,16 +184,28 @@ namespace FSHfiletype
             this.Alphagb.Controls.Add(this.origAlpha);
             this.Alphagb.Controls.Add(this.imgtransalphaRadio);
             this.Alphagb.Controls.Add(this.genmapRadio);
-            this.Alphagb.Location = new System.Drawing.Point(23, 115);
+            this.Alphagb.Location = new System.Drawing.Point(23, 138);
             this.Alphagb.Name = "Alphagb";
             this.Alphagb.Size = new System.Drawing.Size(200, 100);
             this.Alphagb.TabIndex = 24;
             this.Alphagb.TabStop = false;
             this.Alphagb.Text = "Alpha map";
             // 
+            // Fshwritecompcb
+            // 
+            this.Fshwritecompcb.AutoSize = true;
+            this.Fshwritecompcb.Location = new System.Drawing.Point(23, 115);
+            this.Fshwritecompcb.Name = "Fshwritecompcb";
+            this.Fshwritecompcb.Size = new System.Drawing.Size(127, 17);
+            this.Fshwritecompcb.TabIndex = 33;
+            this.Fshwritecompcb.Text = "Fshwrite compression";
+            this.Fshwritecompcb.UseVisualStyleBackColor = true;
+            this.Fshwritecompcb.CheckedChanged += new System.EventHandler(this.Fshwritecompcb_CheckedChanged);
+            // 
             // QfsSaveConfigDialog
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+            this.Controls.Add(this.Fshwritecompcb);
             this.Controls.Add(this.Alphagb);
             this.Controls.Add(this.genmipBox);
             this.Controls.Add(this.fshtypelbl);
@@ -195,7 +213,7 @@ namespace FSHfiletype
             this.Controls.Add(this.label1);
             this.Controls.Add(this.Fshtype);
             this.Name = "QfsSaveConfigDialog";
-            this.Size = new System.Drawing.Size(304, 324);
+            this.Size = new System.Drawing.Size(281, 324);
             this.Alphagb.ResumeLayout(false);
             this.Alphagb.PerformLayout();
             this.ResumeLayout(false);
@@ -259,6 +277,11 @@ namespace FSHfiletype
         }
 
         private void Fshtype_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateToken();
+        }
+
+        private void Fshwritecompcb_CheckedChanged(object sender, EventArgs e)
         {
             UpdateToken();
         }
