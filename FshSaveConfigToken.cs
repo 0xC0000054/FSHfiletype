@@ -13,6 +13,7 @@ namespace FSHfiletype
         private string dirname;
         private bool genmipenabled;
         private bool genmip;
+        private bool fshwritecomp;
 
         public bool OrigAlpha
         {
@@ -96,8 +97,18 @@ namespace FSHfiletype
                 genmipenabled = value;
             }
         }
-
-        public FshSaveConfigToken(bool useorigalpha, bool genmap, bool alphatrans, int Fshtype, string dirname, bool genmipenabled, bool genmip)
+        public bool FshwriteComp
+        {
+            get 
+            {
+                return fshwritecomp;
+            }
+            set
+            {
+                fshwritecomp = value;
+            }
+        }
+        public FshSaveConfigToken(bool useorigalpha, bool genmap, bool alphatrans, int Fshtype, string dirname, bool genmipenabled, bool genmip, bool fshwritecompression)
             : base()
         {
             this.useorigalpha = useorigalpha;
@@ -107,6 +118,7 @@ namespace FSHfiletype
             this.dirname = dirname;
             this.genmipenabled = genmipenabled;
             this.genmip = genmip;
+            this.fshwritecomp = fshwritecompression;
         }
 
 
@@ -120,6 +132,7 @@ namespace FSHfiletype
             this.dirname = copyMe.dirname;
             this.genmipenabled = copyMe.genmipenabled;
             this.genmip = copyMe.genmip;
+            this.fshwritecomp = copyMe.fshwritecomp;
 		}
 
 		public override void Validate()
