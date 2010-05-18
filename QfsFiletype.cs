@@ -13,13 +13,12 @@ using FSHLib;
 namespace FSHfiletype
 {
 
-    internal class QfsFileType
-        : PaintDotNet.FileType
+    internal class QfsFileType : PaintDotNet.FileType
     {
 
 
         public QfsFileType()
-            : base("Compressed Fsh", FileTypeFlags.SupportsLoading | FileTypeFlags.SupportsSaving, new string[] { ".qfs" })
+            : base("Compressed Fsh", FileTypeFlags.SupportsLoading | FileTypeFlags.SupportsSaving | FileTypeFlags.SupportsLayers, new string[] { ".qfs" })
         {
 
         }
@@ -69,7 +68,10 @@ namespace FSHfiletype
             {
                 loadimage = new FSHImage(input);
                 bool combinealpha = true;
-                headdir = loadimage.Header.dirID;
+                if (Encoding.ASCII.GetString(loadimage.Header.dirID) != "G264")
+                {
+                    headdir = loadimage.Header.dirID;
+                }
                 if (Encoding.ASCII.GetString(loadimage.Header.dirID) == "G315")
                 {
                     combinealpha = false;
@@ -123,13 +125,11 @@ namespace FSHfiletype
             }
             else
             {
-
                 bgsur = Surface.CopyFromBitmap(tempitem.Bitmap);
 
                 Surface alpha = Surface.CopyFromBitmap(tempitem.Alpha);
                 al = new BitmapLayer(alpha);
                 al.Name = "Fsh Alpha" + layercnt.ToString();
-
             }
 
             bl.Surface.CopySurface(bgsur);
@@ -224,7 +224,6 @@ namespace FSHfiletype
         {
             FshSaveConfigToken fshtoken = (FshSaveConfigToken)token;
 
-
             try
             {
                 FSHImage saveimg = new FSHImage();
@@ -237,7 +236,7 @@ namespace FSHfiletype
                 using (RenderArgs ra = new RenderArgs(scratchSurface))
                 {
                     Bitmap srcbmp = ra.Surface.CreateAliasedBitmap();
-                    saveimg.IsCompressed = true;
+                    saveimg.IsCompressed = false;
 
                     if (input.Width >= 128 && input.Height >= 128)
                     {
@@ -251,240 +250,258 @@ namespace FSHfiletype
                     for (int l = 0; l < input.Layers.Count; l++)
                     {
                         BitmapLayer bl = (BitmapLayer)input.Layers[l];
-                        if (!bl.Name.Contains("Alpha"))
+                        if (bl.Visible)
                         {
-                            bl.Render(ra, bl.Bounds);
-                            Bitmap bitmap = scratchSurface.CreateAliasedBitmap();
-
-                            bmpitem.Bitmap = bitmap;
-
-                            if (fshtoken.OrigAlpha)
+                            if (!bl.Name.Contains("Alpha"))
                             {
-                                if (loadimage != null && loadimage.Bitmaps.Count > 0)
-                                {
-                                    BitmapItem temp = (BitmapItem)loadimage.Bitmaps[ParseLayerName(bl.Name)];
-                                    bmpitem.Alpha = new Bitmap(temp.Alpha);
-                                }
-                            }
-                            else if (fshtoken.Genmap)
-                            {
-                                Surface alphasrc = new Surface(input.Size);
-                                alphasrc.Clear(ColorBgra.White);
-                                using (RenderArgs alphagen = new RenderArgs(alphasrc))
-                                {
-                                    bmpitem.Alpha = new Bitmap(alphagen.Bitmap);
-                                    bmpitem.BmpType = FSHBmpType.DXT1;
-                                    fshtoken.Fshtype = 2;
-                                }
-                            }
-                            else if (fshtoken.Alphatrans)
-                            {
-                                Bitmap testbmp = new Bitmap(bmpitem.Bitmap.Width, bmpitem.Bitmap.Height, PixelFormat.Format32bppArgb);
+                                bl.Render(ra, bl.Bounds);
+                                Bitmap bitmap = scratchSurface.CreateAliasedBitmap();
 
-                                for (int y = 0; y < testbmp.Height; y++)
+                                bmpitem.Bitmap = bitmap;
+
+                                if (fshtoken.OrigAlpha)
                                 {
-                                    for (int x = 0; x < testbmp.Width; x++)
+                                    if (loadimage != null && loadimage.Bitmaps.Count > 0)
                                     {
-                                        Color srcpxl = srcbmp.GetPixel(x, y);
-                                        Color destpxl = testbmp.GetPixel(x, y);
-                                        testbmp.SetPixel(x, y, Color.FromArgb(srcpxl.A, srcpxl.A, srcpxl.A, srcpxl.A));
-                                        while (testbmp.GetPixel(x, y).A < 255)
-                                        {
-                                            testbmp.SetPixel(x, y, Color.FromArgb(srcpxl.A, srcpxl.A, srcpxl.A));
-                                        }
+                                        BitmapItem temp = (BitmapItem)loadimage.Bitmaps[ParseLayerName(bl.Name)];
+                                        bmpitem.Alpha = new Bitmap(temp.Alpha);
                                     }
                                 }
-                                bmpitem.Alpha = testbmp;
-                                bmpitem.BmpType = FSHBmpType.DXT3;
-                                fshtoken.Fshtype = 3;
+                                else if (fshtoken.Genmap)
+                                {
+                                    Surface alphasrc = new Surface(input.Size);
+                                    alphasrc.Clear(ColorBgra.White);
+                                    using (RenderArgs alphagen = new RenderArgs(alphasrc))
+                                    {
+                                        bmpitem.Alpha = new Bitmap(alphagen.Bitmap);
+                                        bmpitem.BmpType = FSHBmpType.DXT1;
+                                        fshtoken.Fshtype = 2;
+                                    }
+                                }
+                                else if (fshtoken.Alphatrans)
+                                {
+                                    Bitmap testbmp = new Bitmap(bmpitem.Bitmap.Width, bmpitem.Bitmap.Height, PixelFormat.Format32bppArgb);
+
+                                    for (int y = 0; y < testbmp.Height; y++)
+                                    {
+                                        for (int x = 0; x < testbmp.Width; x++)
+                                        {
+                                            Color srcpxl = srcbmp.GetPixel(x, y);
+                                            Color destpxl = testbmp.GetPixel(x, y);
+                                            testbmp.SetPixel(x, y, Color.FromArgb(srcpxl.A, srcpxl.A, srcpxl.A, srcpxl.A));
+                                            while (testbmp.GetPixel(x, y).A < 255)
+                                            {
+                                                testbmp.SetPixel(x, y, Color.FromArgb(srcpxl.A, srcpxl.A, srcpxl.A));
+                                            }
+                                        }
+                                    }
+                                    bmpitem.Alpha = testbmp;
+                                    bmpitem.BmpType = FSHBmpType.DXT3;
+                                    fshtoken.Fshtype = 3;
+                                }
+                                else
+                                {
+                                    Debug.WriteLine("No alpha map file loaded");
+                                    Surface alphasrc = new Surface(input.Size);
+                                    alphasrc.Clear(ColorBgra.White);
+                                    using (RenderArgs alphagen = new RenderArgs(alphasrc))
+                                    {
+                                        bmpitem.Alpha = new Bitmap(alphagen.Bitmap);
+                                        bmpitem.BmpType = FSHBmpType.DXT1;
+                                        fshtoken.Fshtype = 2;
+                                    }
+                                }
+
+                                switch (fshtoken.Fshtype)
+                                {
+                                    case 0:
+                                        bmpitem.BmpType = FSHBmpType.TwentyFourBit;
+                                        break;
+
+                                    case 1:
+                                        bmpitem.BmpType = FSHBmpType.ThirtyTwoBit;
+                                        break;
+
+                                    case 2:
+                                        bmpitem.BmpType = FSHBmpType.DXT1;
+                                        break;
+
+                                    case 3:
+                                        bmpitem.BmpType = FSHBmpType.DXT3;
+                                        break;
+
+                                    default:
+                                        bmpitem.BmpType = FSHBmpType.DXT3;
+                                        break;
+                                }
+                                saveimg.Bitmaps.Add(bmpitem);
+                                saveimg.UpdateDirty();
+
+
+                                using (MemoryStream ms = new MemoryStream())
+                                {
+                                    SaveFsh(ms, saveimg);
+                                    saveimg = new FSHImage(ms); // save and reload the updated image 
+                                }
+
+                                if (fshtoken.GenmipEnabled && fshtoken.Genmip)
+                                {
+                                    if (bmpitem.Bitmap.Width >= 128 && bmpitem.Bitmap.Height >= 128)
+                                    {
+
+                                        Bitmap[] bmps = new Bitmap[4];
+                                        Bitmap[] alphas = new Bitmap[4];
+
+                                        // 0 = 8, 1 = 16, 2 = 32, 3 = 64
+                                        Image.GetThumbnailImageAbort abort = new Image.GetThumbnailImageAbort(thabort);
+                                        if (bmpitem.Bitmap.Width >= 128 && bmpitem.Bitmap.Height >= 128)
+                                        {
+                                            Bitmap bmp = new Bitmap(bmpitem.Bitmap);
+                                            bmps[0] = (Bitmap)bmp.GetThumbnailImage(8, 8, abort, IntPtr.Zero);
+                                            bmps[1] = (Bitmap)bmp.GetThumbnailImage(16, 16, abort, IntPtr.Zero);
+                                            bmps[2] = (Bitmap)bmp.GetThumbnailImage(32, 32, abort, IntPtr.Zero);
+                                            bmps[3] = (Bitmap)bmp.GetThumbnailImage(64, 64, abort, IntPtr.Zero);
+                                            //alpha
+                                            Bitmap alpha = new Bitmap(bmpitem.Alpha);
+                                            alphas[0] = (Bitmap)alpha.GetThumbnailImage(8, 8, abort, IntPtr.Zero);
+                                            alphas[1] = (Bitmap)alpha.GetThumbnailImage(16, 16, abort, IntPtr.Zero);
+                                            alphas[2] = (Bitmap)alpha.GetThumbnailImage(32, 32, abort, IntPtr.Zero);
+                                            alphas[3] = (Bitmap)alpha.GetThumbnailImage(64, 64, abort, IntPtr.Zero);
+
+                                            if (mipimgs == null)
+                                            {
+                                                mipimgs = new FSHImage[4];
+                                            }
+                                            for (int i = 3; i >= 0; i--)
+                                            {
+                                                if (bmps[i] != null && alphas[i] != null)
+                                                {
+                                                    Rectangle bmprect = new Rectangle(0, 0, bmps[i].Width, bmps[i].Height);
+                                                    BitmapItem mipitm = new BitmapItem();
+                                                    mipitm.Bitmap = bmps[i].Clone(bmprect, PixelFormat.Format32bppArgb);
+                                                    mipitm.Alpha = alphas[i].Clone(bmprect, PixelFormat.Format24bppRgb);
+
+                                                    if (bmpitem.BmpType == FSHBmpType.DXT3 || bmpitem.BmpType == FSHBmpType.ThirtyTwoBit)
+                                                    {
+                                                        mipitm.BmpType = FSHBmpType.DXT3;
+                                                    }
+
+                                                    if (mipimgs[i] == null)
+                                                    {
+                                                        mipimgs[i] = new FSHImage();
+                                                    }
+
+                                                    mipimgs[i].Bitmaps.Add(mipitm);
+                                                    mipimgs[i].UpdateDirty();
+
+                                                    using (MemoryStream ms = new MemoryStream())
+                                                    {
+                                                        SaveFsh(ms, mipimgs[i]);
+                                                        mipimgs[i] = new FSHImage(ms);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                }
+
                             }
                             else
                             {
-                                Debug.WriteLine("No alpha map file loaded");
-                                Surface alphasrc = new Surface(input.Size);
-                                alphasrc.Clear(ColorBgra.White);
-                                using (RenderArgs alphagen = new RenderArgs(alphasrc))
+                                if (!fshtoken.OrigAlpha)
                                 {
-                                    bmpitem.Alpha = new Bitmap(alphagen.Bitmap);
-                                    bmpitem.BmpType = FSHBmpType.DXT1;
-                                    fshtoken.Fshtype = 2;
-                                }
-                            }
+                                    int idx = ParseAlphaName(bl.Name);
+                                    BitmapItem item = (BitmapItem)saveimg.Bitmaps[idx];
 
-                            switch (fshtoken.Fshtype)
-                            {
-                                case 0:
-                                    bmpitem.BmpType = FSHBmpType.TwentyFourBit;
-                                    break;
+                                    bl.Render(ra, bl.Bounds);
 
-                                case 1:
-                                    bmpitem.BmpType = FSHBmpType.ThirtyTwoBit;
-                                    break;
-
-                                case 2:
-                                    bmpitem.BmpType = FSHBmpType.DXT1;
-                                    break;
-
-                                case 3:
-                                    bmpitem.BmpType = FSHBmpType.DXT3;
-                                    break;
-
-                                default:
-                                    bmpitem.BmpType = FSHBmpType.DXT3;
-                                    break;
-                            }
-                            saveimg.Bitmaps.Add(bmpitem);
-                            saveimg.UpdateDirty();
-
-
-                            using (MemoryStream ms = new MemoryStream())
-                            {
-                                SaveFsh(ms, saveimg);
-                                saveimg = new FSHImage(ms); // save and reload the updated image 
-                            }
-
-                            if (fshtoken.GenmipEnabled && fshtoken.Genmip)
-                            {
-                                if (bmpitem.Bitmap.Width >= 128 && bmpitem.Bitmap.Height >= 128)
-                                {
-
-                                    Bitmap[] bmps = new Bitmap[4];
-                                    Bitmap[] alphas = new Bitmap[4];
-
-                                    // 0 = 8, 1 = 16, 2 = 32, 3 = 64
-                                    Image.GetThumbnailImageAbort abort = new Image.GetThumbnailImageAbort(thabort);
-                                    if (bmpitem.Bitmap.Width >= 128 && bmpitem.Bitmap.Height >= 128)
+                                    Bitmap alpha = scratchSurface.CreateAliasedBitmap();
+                                    item.Alpha = alpha;
+                                    saveimg.Bitmaps.Insert(idx, item);
+                                    saveimg.UpdateDirty();
+                                    if (fshtoken.GenmipEnabled && fshtoken.Genmip && mipimgs != null)
                                     {
-                                        Bitmap bmp = new Bitmap(bmpitem.Bitmap);
-                                        bmps[0] = (Bitmap)bmp.GetThumbnailImage(8, 8, abort, IntPtr.Zero);
-                                        bmps[1] = (Bitmap)bmp.GetThumbnailImage(16, 16, abort, IntPtr.Zero);
-                                        bmps[2] = (Bitmap)bmp.GetThumbnailImage(32, 32, abort, IntPtr.Zero);
-                                        bmps[3] = (Bitmap)bmp.GetThumbnailImage(64, 64, abort, IntPtr.Zero);
-                                        //alpha
-                                        Bitmap alpha = new Bitmap(bmpitem.Alpha);
+                                        Bitmap[] alphas = new Bitmap[4];
+                                        Image.GetThumbnailImageAbort abort = new Image.GetThumbnailImageAbort(thabort);
+
                                         alphas[0] = (Bitmap)alpha.GetThumbnailImage(8, 8, abort, IntPtr.Zero);
                                         alphas[1] = (Bitmap)alpha.GetThumbnailImage(16, 16, abort, IntPtr.Zero);
                                         alphas[2] = (Bitmap)alpha.GetThumbnailImage(32, 32, abort, IntPtr.Zero);
                                         alphas[3] = (Bitmap)alpha.GetThumbnailImage(64, 64, abort, IntPtr.Zero);
-
-                                        if (mipimgs == null)
-                                        {
-                                            mipimgs = new FSHImage[4];
-                                        }
                                         for (int i = 3; i >= 0; i--)
                                         {
-                                            if (bmps[i] != null && alphas[i] != null)
+                                            BitmapItem bi = (BitmapItem)mipimgs[i].Bitmaps[idx];
+                                            bi.Alpha = alphas[i];
+                                            if (alphas[i].GetPixel(0, 0).ToArgb() == Color.Black.ToArgb())
                                             {
-                                                Rectangle bmprect = new Rectangle(0, 0, bmps[i].Width, bmps[i].Height);
-                                                BitmapItem mipitm = new BitmapItem();
-                                                mipitm.Bitmap = bmps[i].Clone(bmprect, PixelFormat.Format32bppArgb);
-                                                mipitm.Alpha = alphas[i].Clone(bmprect, PixelFormat.Format24bppRgb);
-
-                                                if (bmpitem.BmpType == FSHBmpType.DXT3 || bmpitem.BmpType == FSHBmpType.ThirtyTwoBit)
-                                                {
-                                                    mipitm.BmpType = FSHBmpType.DXT3;
-                                                }
-
-                                                if (mipimgs[i] == null)
-                                                {
-                                                    mipimgs[i] = new FSHImage();
-                                                }
-
-                                                mipimgs[i].Bitmaps.Add(mipitm);
-                                                mipimgs[i].UpdateDirty();
-
+                                                bi.BmpType = FSHBmpType.DXT3;
                                             }
+                                            else
+                                            {
+                                                bi.BmpType = FSHBmpType.DXT1;
+                                            }
+                                            mipimgs[i].Bitmaps.Insert(idx, bi);
+                                            mipimgs[i].UpdateDirty();
+
+                                            using (MemoryStream ms = new MemoryStream())
+                                            {
+                                                SaveFsh(ms, mipimgs[i]);
+                                                mipimgs[i] = new FSHImage(ms);
+                                            }
+
                                         }
+
                                     }
 
                                 }
-                            }
-
-                        }
-                        else
-                        {
-                            if (!fshtoken.OrigAlpha)
-                            {
-                                int idx = ParseAlphaName(bl.Name);
-                                BitmapItem item = (BitmapItem)saveimg.Bitmaps[idx];
-
-                                bl.Render(ra, bl.Bounds);
-
-                                Bitmap alpha = scratchSurface.CreateAliasedBitmap();
-                                item.Alpha = alpha;
-                                saveimg.Bitmaps.Insert(idx, item);
-                                saveimg.UpdateDirty();
-                                if (fshtoken.GenmipEnabled && fshtoken.Genmip && mipimgs != null)
-                                {
-                                    Bitmap[] alphas = new Bitmap[4];
-                                    Image.GetThumbnailImageAbort abort = new Image.GetThumbnailImageAbort(thabort);
-
-                                    alphas[0] = (Bitmap)alpha.GetThumbnailImage(8, 8, abort, IntPtr.Zero);
-                                    alphas[1] = (Bitmap)alpha.GetThumbnailImage(16, 16, abort, IntPtr.Zero);
-                                    alphas[2] = (Bitmap)alpha.GetThumbnailImage(32, 32, abort, IntPtr.Zero);
-                                    alphas[3] = (Bitmap)alpha.GetThumbnailImage(64, 64, abort, IntPtr.Zero);
-                                    for (int i = 3; i >= 0; i--)
-                                    {
-                                        BitmapItem bi = (BitmapItem)mipimgs[i].Bitmaps[idx];
-                                        bi.Alpha = alphas[i];
-                                        if (alphas[i].GetPixel(0, 0).ToArgb() == Color.Black.ToArgb())
-                                        {
-                                            bi.BmpType = FSHBmpType.DXT3;
-                                        }
-                                        else
-                                        {
-                                            bi.BmpType = FSHBmpType.DXT1;
-                                        }
-                                        mipimgs[i].Bitmaps.Insert(idx, bi);
-                                        mipimgs[i].UpdateDirty();
-                                    }
-                                }
-
                             }
 
                         }
                     }
-                    
-                }
 
-                SaveFsh(output, saveimg);
+                    SaveFsh(output, saveimg);
 
-                if (fshtoken.GenmipEnabled && fshtoken.Genmip)
-                {
-
-                    string filename = string.Empty;
-                    FileStream fs = output as FileStream;
-                    if (fs != null)
+                    if (fshtoken.GenmipEnabled && fshtoken.Genmip)
                     {
-                        filename = fs.Name;
-                    }
 
-                    if (!string.IsNullOrEmpty(filename))
-                    {
-                        string dir = Path.GetDirectoryName(filename);
-                        string tempdir = Path.GetDirectoryName(Path.GetTempPath());
-                        if (string.CompareOrdinal(dir, tempdir) != 0)
+                        string filename = string.Empty;
+                        FileStream fs = output as FileStream;
+                        if (fs != null)
                         {
-                            string filepath = null;
-                            for (int i = 3; i >= 0; i--)
-                            {
-                                if (mipimgs[i] != null)
-                                {
+                            filename = fs.Name;
+                        }
 
-                                    filepath = GetFileName(filename, "_s" + i.ToString());
-                                    using (FileStream fstream = new FileStream(filepath, FileMode.OpenOrCreate, FileAccess.Write))
+                        if (!string.IsNullOrEmpty(filename))
+                        {
+                            string dir = Path.GetDirectoryName(filename);
+                            string tempdir = Path.GetDirectoryName(Path.GetTempPath());
+                            if (string.CompareOrdinal(dir, tempdir) != 0)
+                            {
+                                string filepath = null;
+                                for (int i = 3; i >= 0; i--)
+                                {
+                                    if (mipimgs[i] != null)
                                     {
-                                        mipimgs[i].IsCompressed = true;
-                                        SaveFsh(fstream, mipimgs[i]);
+
+                                        filepath = GetFileName(filename, "_s" + i.ToString());
+                                        using (FileStream fstream = new FileStream(filepath, FileMode.OpenOrCreate, FileAccess.Write))
+                                        {
+                                            mipimgs[i].IsCompressed = true;
+                                            SaveFsh(fstream, mipimgs[i]);
+                                        }
+
                                     }
 
                                 }
-
                             }
+
                         }
 
-                    }
 
+
+
+                    }
                 }
 
             }
