@@ -296,7 +296,7 @@ namespace FSHfiletype
                                 }
                                 else
                                 {
-                                    Debug.WriteLine("No alpha map file loaded");
+                                   // Debug.WriteLine("No alpha map file loaded");
                                     Surface alphasrc = new Surface(input.Size);
                                     alphasrc.Clear(ColorBgra.White);
                                     using (RenderArgs alphagen = new RenderArgs(alphasrc))
