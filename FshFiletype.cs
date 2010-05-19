@@ -292,12 +292,7 @@ namespace FSHfiletype
                                         for (int x = 0; x < testbmp.Width; x++)
                                         {
                                             Color srcpxl = srcbmp.GetPixel(x, y);
-                                            Color destpxl = testbmp.GetPixel(x, y);
-                                            testbmp.SetPixel(x, y, Color.FromArgb(srcpxl.A, srcpxl.A, srcpxl.A, srcpxl.A));
-                                            while (testbmp.GetPixel(x, y).A < 255)
-                                            {
-                                                testbmp.SetPixel(x, y, Color.FromArgb(srcpxl.A, srcpxl.A, srcpxl.A));
-                                            }
+                                            testbmp.SetPixel(x, y, Color.FromArgb(srcpxl.A, srcpxl.A, srcpxl.A));
                                         }
                                     }
                                     bmpitem.Alpha = testbmp;
@@ -502,7 +497,6 @@ namespace FSHfiletype
                             }
 
                         }
-
 
                     }
                 }
