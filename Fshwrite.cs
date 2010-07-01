@@ -107,7 +107,7 @@ namespace FSHfiletype
         {
             [DllImport(@"Native.x64\PaintDotNet.Native.x64.dll")]
             public static extern unsafe void SquishCompressImage(byte* rgba, int width, int height, byte* blocks, int flags, [MarshalAs(UnmanagedType.FunctionPtr)]  ProgressFn pf);
-            [DllImport(@"Native.x86\PaintDotNet.Native.x86.dll")]
+            [DllImport(@"Native.x64\PaintDotNet.Native.x64.dll")]
             public static extern void SquishInitialize();
         }
         private static unsafe void CompressImageWrapper(byte[] rgba, int width, int height, byte[] blocks, int flags)
