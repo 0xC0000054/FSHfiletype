@@ -51,18 +51,30 @@ namespace FSHfiletype
         {
             byte[] pixelData = new byte[image.Width * image.Height * 4];
 
-            for (int y = 0; y < image.Height; y++)
-            {
-                for (int x = 0; x < image.Width; x++)
-                {
-                    Color pixel = image.GetPixel(x, y);
-                    int Offset = (y * image.Width * 4) + (x * 4);
 
-                    pixelData[Offset] = pixel.R;
-                    pixelData[Offset + 1] = pixel.G;
-                    pixelData[Offset + 2] = pixel.B;
-                    pixelData[Offset + 3] = pixel.A;
+            BitmapData data = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                unsafe
+                {
+                    for (int y = 0; y < image.Height; y++)
+                    {
+                        for (int x = 0; x < image.Width; x++)
+                        {
+                            byte* p = (byte*)data.Scan0.ToPointer() + (y * data.Stride) + (x * 4);
+                            int Offset = (y * image.Width * 4) + (x * 4);
+
+                            pixelData[Offset] = p[2];
+                            pixelData[Offset + 1] = p[1];
+                            pixelData[Offset + 2] = p[0];
+                            pixelData[Offset + 3] = p[3];
+                        }
+                    } 
                 }
+            }
+            finally
+            {
+                image.UnlockBits(data);
             }
 
             // Compute size of compressed block area, and allocate 
@@ -319,7 +331,8 @@ namespace FSHfiletype
                         {
                             Bitmap temp = BlendDXTBmp(bmp, alpha, true);
                             byte[] data = new byte[temp.Width * temp.Height * 4];
-                            int flags = (int)SquishCompFlags.kDxt1;
+                            int flags = 0;
+                            flags |= (int)SquishCompFlags.kDxt1;
                             flags |= (int)SquishCompFlags.kColourIterativeClusterFit;
                             flags |= (int)SquishCompFlags.kColourMetricPerceptual;
                             data = CompressImage(temp, flags);
@@ -329,7 +342,8 @@ namespace FSHfiletype
                         {
                             Bitmap temp = BlendDXTBmp(bmp, alpha, false);
                             byte[] data = new byte[temp.Width * temp.Height * 4];
-                            int flags = (int)SquishCompFlags.kDxt3;
+                            int flags = 0;
+                            flags |= (int)SquishCompFlags.kDxt3;
                             flags |= (int)SquishCompFlags.kColourIterativeClusterFit;
                             flags |= (int)SquishCompFlags.kColourMetricPerceptual;
                             data = CompressImage(temp, flags);
