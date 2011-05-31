@@ -117,13 +117,10 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AlphagbText" xml:space="preserve">
-    <value>Alpha</value>
-  </data>
   <data name="AlphatransText" xml:space="preserve">
     <value>Alpha from image transparency</value>
   </data>
-  <data name="dirnamelblText" xml:space="preserve">
+  <data name="DirNameText" xml:space="preserve">
     <value>Directory name</value>
   </data>
   <data name="FshtypeText" xml:space="preserve">
@@ -132,10 +129,43 @@
   <data name="GenmapText" xml:space="preserve">
     <value>Generate new map</value>
   </data>
-  <data name="GenmipText" xml:space="preserve">
-    <value>Generate Mipmaps</value>
+  <data name="InvalidFshFile" xml:space="preserve">
+    <value>The file is truncated and invalid.</value>
   </data>
-  <data name="OrigAlphaText" xml:space="preserve">
-    <value>Use original Alpha</value>
+  <data name="InvalidFshHeader" xml:space="preserve">
+    <value>An invalid header was read.</value>
+  </data>
+  <data name="UnsupportedFshFormat" xml:space="preserve">
+    <value>Only 24-bit , 32-bit RGBA, DXT1 and DXT3 images are supported.</value>
+  </data>
+  <data name="FshFileFormat24Bit" xml:space="preserve">
+    <value>24 Bit RGB</value>
+  </data>
+  <data name="FshFileFormat32Bit" xml:space="preserve">
+    <value>32 Bit RGBA</value>
+  </data>
+  <data name="FshFileFormatDXT1" xml:space="preserve">
+    <value>DXT1 Compressed, no Alpha</value>
+  </data>
+  <data name="FshFileFormatDXT3" xml:space="preserve">
+    <value>DXT3 Compressed, with Alpha</value>
+  </data>
+  <data name="FshWriteText" xml:space="preserve">
+    <value>Fshwrite compression</value>
+  </data>
+  <data name="MultiscaleBitmapsNotSupported" xml:space="preserve">
+    <value>Multiscale bitmaps are not supported.</value>
+  </data>
+  <data name="CompressedEntriesNotSupported" xml:space="preserve">
+    <value>Compressed entries are not supported.</value>
+  </data>
+  <data name="ErrorLoadingCaption" xml:space="preserve">
+    <value>Error loading fsh</value>
+  </data>
+  <data name="ErrorSavingCaption" xml:space="preserve">
+    <value>Error saving fsh</value>
+  </data>
+  <data name="FshLayerTitle" xml:space="preserve">
+    <value>Fsh Bitmap</value>
   </data>
 </root>
