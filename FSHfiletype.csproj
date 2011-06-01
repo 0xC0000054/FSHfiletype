@@ -33,6 +33,7 @@
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -44,6 +45,7 @@
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <NoWarn>0628</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
@@ -68,17 +70,18 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\Fshlib_vista\Fshlib_vista\FSHLib.dll</HintPath>
     </Reference>
-    <Reference Include="PaintDotNet.Base, Version=3.36.3158.38062, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files\Paint.NET\PaintDotNet.Base.dll</HintPath>
+    <Reference Include="PaintDotNet.Base">
+      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.Base.dll</HintPath>
     </Reference>
-    <Reference Include="PaintDotNet.Core, Version=3.36.3158.38063, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files\Paint.NET\PaintDotNet.Core.dll</HintPath>
+    <Reference Include="PaintDotNet.Core">
+      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.Core.dll</HintPath>
     </Reference>
-    <Reference Include="PaintDotNet.Data, Version=3.36.3158.38064, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="PaintDotNet.Data">
+      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="PaintDotNet.SystemLayer, Version=3.58.4081.24580, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Program Files\Paint.NET\PaintDotNet.Data.dll</HintPath>
+      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.SystemLayer.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
@@ -94,18 +97,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlendBmp.cs" />
-    <Compile Include="FshSaveConfigToken.cs" />
-    <Compile Include="FshSaveConfigDialog.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="FshSaveConfigDialog.Designer.cs">
-      <DependentUpon>FshSaveConfigDialog.cs</DependentUpon>
-    </Compile>
+    <Compile Include="FshFile.cs" />
+    <Compile Include="FshFileFormat.cs" />
+    <Compile Include="FshImageLoad.cs" />
+    <Compile Include="FshLoadBitmapItem.cs" />
     <Compile Include="Fshwrite.cs" />
-    <Compile Include="QfsSaveConfigForm.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="QfsFiletype.cs" />
+    <Compile Include="PropertyNames.cs" />
+    <Compile Include="QfsComp.cs" />
     <Compile Include="FshFiletype.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -113,6 +111,8 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Squish.cs" />
+    <Compile Include="StreamExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -140,16 +140,7 @@
   </ItemGroup>
   <PropertyGroup>
     <PostBuildEvent>Copy "$(TargetPath)" "C:\Program Files\Paint.NET\FileTypes" /y
-if "$(ConfigurationName)" == Debug copy "$(TargetDir)$(TargetName).pdb" "C:\Program Files\Paint.NET\FileTypes" /y
+if "$(ConfigurationName)" == "Debug" copy "$(TargetDir)$(TargetName).pdb" "C:\Program Files\Paint.NET\FileTypes" /y
 </PostBuildEvent>
   </PropertyGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="FshSaveConfigDialog.resx">
-      <DependentUpon>FshSaveConfigDialog.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="QfsSaveConfigForm.resx">
-      <DependentUpon>QfsSaveConfigForm.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-  </ItemGroup>
 </Project>

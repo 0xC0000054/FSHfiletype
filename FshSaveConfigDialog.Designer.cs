@@ -36,7 +36,6 @@ namespace FSHfiletype
             this.dirnameBox = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.Fshtype = new System.Windows.Forms.ComboBox();
-            this.genmipBox = new System.Windows.Forms.CheckBox();
             this.Fshtypegb = new System.Windows.Forms.GroupBox();
             this.Fshwritecompcb = new System.Windows.Forms.CheckBox();
             this.Alphagb.SuspendLayout();
@@ -48,7 +47,7 @@ namespace FSHfiletype
             this.Alphagb.Controls.Add(this.origAlpha);
             this.Alphagb.Controls.Add(this.imgtransalphaRadio);
             this.Alphagb.Controls.Add(this.genmapRadio);
-            this.Alphagb.Location = new System.Drawing.Point(4, 163);
+            this.Alphagb.Location = new System.Drawing.Point(4, 140);
             this.Alphagb.Name = "Alphagb";
             this.Alphagb.Size = new System.Drawing.Size(200, 100);
             this.Alphagb.TabIndex = 29;
@@ -122,17 +121,6 @@ namespace FSHfiletype
             this.Fshtype.TabIndex = 25;
             this.Fshtype.SelectedIndexChanged += new System.EventHandler(this.Fshtype_SelectedIndexChanged);
             // 
-            // genmipBox
-            // 
-            this.genmipBox.AutoSize = true;
-            this.genmipBox.Location = new System.Drawing.Point(13, 117);
-            this.genmipBox.Name = "genmipBox";
-            this.genmipBox.Size = new System.Drawing.Size(115, 17);
-            this.genmipBox.TabIndex = 30;
-            this.genmipBox.Text = global::FSHfiletype.Properties.Resources.GenmipText;
-            this.genmipBox.UseVisualStyleBackColor = true;
-            this.genmipBox.CheckedChanged += new System.EventHandler(this.genmipBox_CheckedChanged);
-            // 
             // Fshtypegb
             // 
             this.Fshtypegb.Controls.Add(this.Fshtype);
@@ -146,7 +134,7 @@ namespace FSHfiletype
             // Fshwritecompcb
             // 
             this.Fshwritecompcb.AutoSize = true;
-            this.Fshwritecompcb.Location = new System.Drawing.Point(13, 140);
+            this.Fshwritecompcb.Location = new System.Drawing.Point(14, 117);
             this.Fshwritecompcb.Name = "Fshwritecompcb";
             this.Fshwritecompcb.Size = new System.Drawing.Size(127, 17);
             this.Fshwritecompcb.TabIndex = 32;
@@ -160,7 +148,6 @@ namespace FSHfiletype
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.Fshwritecompcb);
             this.Controls.Add(this.Fshtypegb);
-            this.Controls.Add(this.genmipBox);
             this.Controls.Add(this.Alphagb);
             this.Controls.Add(this.dirnameBox);
             this.Controls.Add(this.label1);
@@ -183,7 +170,6 @@ namespace FSHfiletype
         internal System.Windows.Forms.TextBox dirnameBox;
         private System.Windows.Forms.Label label1;
         internal System.Windows.Forms.ComboBox Fshtype;
-        internal System.Windows.Forms.CheckBox genmipBox;
         private System.Windows.Forms.GroupBox Fshtypegb;
         private System.Windows.Forms.CheckBox Fshwritecompcb;
     }
