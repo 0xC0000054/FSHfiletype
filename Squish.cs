@@ -72,18 +72,31 @@ namespace FSHfiletype
             {
                 unsafe
                 {
-                    for (int y = 0; y < image.Height; y++)
-                    {
-                        for (int x = 0; x < image.Width; x++)
-                        {
-                            byte* p = (byte*)data.Scan0.ToPointer() + (y * data.Stride) + (x * 4);
-                            int Offset = (y * image.Width * 4) + (x * 4);
 
-                            pixelData[Offset] = p[2];
-                            pixelData[Offset + 1] = p[1];
-                            pixelData[Offset + 2] = p[0];
-                            pixelData[Offset + 3] = p[3];
-                        }
+
+                    fixed (byte* ptr = pixelData)
+                    {
+                        int width = image.Width;
+                        int height = image.Height;
+                        void* scan0 = data.Scan0.ToPointer();
+                        int stride = data.Stride;
+                        int dstStride = width * 4;
+
+                        for (int y = 0; y < height; y++)
+                        {
+                            byte* p = (byte*)scan0 + (y * stride);
+                            byte* dst = ptr + (y * dstStride);
+                            for (int x = 0; x < width; x++)
+                            {
+                                pixelData[0] = p[2];
+                                pixelData[1] = p[1];
+                                pixelData[2] = p[0];
+                                pixelData[3] = p[3];
+
+                                p += 4;
+                                dst += 4;
+                            }
+                        } 
                     }
                 }
             }
