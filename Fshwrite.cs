@@ -6,6 +6,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using PaintDotNet;
 
 namespace FSHfiletype
 {
@@ -13,78 +14,79 @@ namespace FSHfiletype
     {
         public Fshwrite()
         {
-            bmplist = new List<Bitmap>();
-            alphalist = new List<Bitmap>();
+            bmpList = new List<Bitmap>();
+            alphaList = new List<Bitmap>();
             dirnames = new List<byte[]>();
-            codelist = new List<int>();
+            codeList = new List<int>();
             headdir = null;
         }
 
-        private Bitmap BlendDXTBmp(Bitmap colorbmp, Bitmap bmpalpha, bool dxt1)
+        private Bitmap BlendDXTBmp(Bitmap color, Bitmap alpha)
         {
             Bitmap image = null;
-            if (colorbmp != null && bmpalpha != null)
+            using (Bitmap temp = new Bitmap(color.Width, color.Height, PixelFormat.Format32bppArgb))
             {
-                image = new Bitmap(colorbmp.Width, colorbmp.Height, PixelFormat.Format32bppArgb);
-            }
-            if (colorbmp.Size != bmpalpha.Size)
-            {
-                throw new ArgumentException("The bitmap and alpha must be equal size");
-            }
-            if (colorbmp.PixelFormat != PixelFormat.Format32bppArgb && colorbmp.PixelFormat != PixelFormat.Format24bppRgb)
-            {
-                throw new ArgumentException("The color bitmap must be either 24-bit or 32-bit");
-            }
 
-            if (colorbmp.PixelFormat == PixelFormat.Format24bppRgb)
-            { 
-                colorbmp = colorbmp.Clone(new Rectangle(0, 0, colorbmp.Width, colorbmp.Height), PixelFormat.Format32bppArgb);
-            }
-
-            BitmapData colordata = colorbmp.LockBits(new Rectangle(0, 0, colorbmp.Width, colorbmp.Height), ImageLockMode.ReadOnly, colorbmp.PixelFormat);
-            BitmapData alphadata = bmpalpha.LockBits(new Rectangle(0, 0, bmpalpha.Width, bmpalpha.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
-            BitmapData bdata = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
-            IntPtr scan0 = bdata.Scan0;
-            int bpp = colorbmp.PixelFormat == PixelFormat.Format24bppRgb ? 3 : 4; // the bits per pixel of the image (3 for 24-bit, 4 for 32-bit)
-            unsafe
-            {
-                byte* clrdata = (byte*)(void*)colordata.Scan0;
-                byte* aldata = (byte*)(void*)alphadata.Scan0;
-                byte* destdata = (byte*)(void*)scan0;
-                int offset = bdata.Stride - image.Width * 4;
-                int clroffset = colordata.Stride - image.Width * bpp;
-                int aloffset = alphadata.Stride - image.Width * 3;
-                for (int y = 0; y < image.Height; y++)
+                if (color.Size != alpha.Size)
                 {
-                    for (int x = 0; x < image.Width; x++)
-                    {
-
-                        destdata[3] = dxt1 ? (byte)255 : aldata[0];
-                        destdata[0] = clrdata[0];
-                        destdata[1] = clrdata[1];
-                        destdata[2] = clrdata[2];
-
-
-                        destdata += 4;
-                        clrdata += bpp;
-                        aldata += 3;
-                    }
-                    destdata += offset;
-                    clrdata += clroffset;
-                    aldata += aloffset;
+                    throw new ArgumentException("The bitmap and alpha must be equal size");
                 }
 
+                BitmapData colorData = color.LockBits(new Rectangle(0, 0, color.Width, color.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+                BitmapData alphaData = alpha.LockBits(new Rectangle(0, 0, alpha.Width, alpha.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+                BitmapData bdata = temp.LockBits(new Rectangle(0, 0, temp.Width, temp.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+                try
+                {
+                    unsafe
+                    {
+
+                        byte* colorScan0 = (byte*)colorData.Scan0.ToPointer();
+                        byte* alphaScan0 = (byte*)alphaData.Scan0.ToPointer();
+                        byte* destScan0 = (byte*)bdata.Scan0.ToPointer();
+                        int colorStride = colorData.Stride;
+                        int alphaStride = alphaData.Stride;
+                        int destStride = bdata.Stride;
+
+                        for (int y = 0; y < temp.Height; y++)
+                        {
+                            byte* clr = colorScan0 + (y * colorStride);
+                            byte* al = alphaScan0 + (y * alphaStride);
+                            byte* dst = destScan0 + (y * destStride); 
+
+                            for (int x = 0; x < temp.Width; x++)
+                            {
+
+                                dst[0] = dst[0];
+                                dst[1] = dst[1];
+                                dst[2] = dst[2];
+                                dst[3] = dst[0];
+
+
+                                clr += 3;
+                                al += 3;       
+                                dst += 4;
+                            }
+                        }
+
+                    }
+                }
+                finally
+                {
+                    color.UnlockBits(colorData);
+                    alpha.UnlockBits(alphaData);
+                    temp.UnlockBits(bdata);
+                }
+
+                image = temp.CloneT<Bitmap>();
             }
-            colorbmp.UnlockBits(colordata);
-            bmpalpha.UnlockBits(alphadata);
-            image.UnlockBits(bdata);
+            
             return image;
         }
 
-        private List<Bitmap> bmplist = null;
-        private List<Bitmap> alphalist = null;
+        private List<Bitmap> bmpList = null;
+        private List<Bitmap> alphaList = null;
         private List<byte[]> dirnames = null;
-        private List<int> codelist = null;
+        private List<int> codeList = null;
         private byte[] headdir = null;
         private int GetBmpDataSize(Bitmap bmp, int code)
         {
@@ -104,11 +106,11 @@ namespace FSHfiletype
         {
             get 
             {
-                return alphalist;
+                return alphaList;
             }
             set
             {
-                alphalist = value;
+                alphaList = value;
             }
         }
         public byte[] HeadDir
@@ -126,11 +128,11 @@ namespace FSHfiletype
         {
             get
             {
-                return bmplist;
+                return bmpList;
             }
             set
             {
-                bmplist = value;
+                bmpList = value;
             }
         }
         public List<byte[]> dir
@@ -148,11 +150,11 @@ namespace FSHfiletype
         {
             get
             {
-                return codelist;
+                return codeList;
             }
             set
             {
-                codelist = value;
+                codeList = value;
             }
         }
         /// <summary>
@@ -163,12 +165,12 @@ namespace FSHfiletype
         {
             using (MemoryStream ms = new MemoryStream())
             {
-                if (bmplist != null && bmplist.Count > 0 && alphalist != null && dirnames != null && codelist != null)
+                if (bmpList != null && bmpList.Count > 0 && alphaList != null && dirnames != null && codeList != null)
                 {
                     //write header
                     ms.Write(Encoding.ASCII.GetBytes("SHPI"), 0, 4); // write SHPI id
                     ms.Write(BitConverter.GetBytes(0), 0, 4); // placeholder for the length
-                    ms.Write(BitConverter.GetBytes(bmplist.Count), 0, 4); // write the number of bitmaps in the list
+                    ms.Write(BitConverter.GetBytes(bmpList.Count), 0, 4); // write the number of bitmaps in the list
                     if (headdir != null)
                     {
                         ms.Write(headdir, 0, 4); // override the header directory id (eg. G315 - emergency lights)
@@ -177,8 +179,8 @@ namespace FSHfiletype
                     {
                         ms.Write(Encoding.ASCII.GetBytes("G264"), 0, 4); // header directory
                     }
-                    int fshlen = 16 + (8 * bmplist.Count); // fsh length
-                    for (int c = 0; c < bmplist.Count; c++)
+                    int fshlen = 16 + (8 * bmpList.Count); // fsh length
+                    for (int c = 0; c < bmpList.Count; c++)
                     {
                         //write directory
                        // Debug.WriteLine("bmp = " + c.ToString() + " offset = " + fshlen.ToString());
@@ -186,46 +188,32 @@ namespace FSHfiletype
                         ms.Write(BitConverter.GetBytes(fshlen), 0, 4); // Write the Entry offset 
 
                         fshlen += 16; // skip the entry header length
-                        int bmplen = GetBmpDataSize(bmplist[c], codelist[c]);
+                        int bmplen = GetBmpDataSize(bmpList[c], codeList[c]);
                         fshlen += bmplen; // skip the bitmap length
                     }
-                    for (int b = 0; b < bmplist.Count; b++)
+                    for (int b = 0; b < bmpList.Count; b++)
                     {
-                        Bitmap bmp = bmplist[b];
-                        Bitmap alpha = alphalist[b];
-                        int code = codelist[b];
+                        Bitmap bmp = bmpList[b];
+                        Bitmap alpha = alphaList[b];
+                        int code = codeList[b];
                         // write entry header
                         ms.Write(BitConverter.GetBytes(code), 0, 4); // write the Entry bitmap code
-                        ms.Write(BitConverter.GetBytes((short)bmp.Width), 0, 2); // write width
-                        ms.Write(BitConverter.GetBytes((short)bmp.Height), 0, 2); //write height
+                        ms.Write(BitConverter.GetBytes((ushort)bmp.Width), 0, 2); // write width
+                        ms.Write(BitConverter.GetBytes((ushort)bmp.Height), 0, 2); //write height
                         for (int m = 0; m < 4; m++)
                         {
-                            ms.Write(BitConverter.GetBytes((short)0), 0, 2);// write misc data
+                            ms.Write(BitConverter.GetBytes((ushort)0), 0, 2);// write misc data
                         }
-
-                        if (code == 0x60) //DXT1
-                        {
-                            Bitmap temp = BlendDXTBmp(bmp, alpha, true);
-                            byte[] data = new byte[temp.Width * temp.Height * 4];
-                            int flags = 0;
-                            flags |= (int)Squish.SquishFlags.kDxt1;
-                            flags |= (int)Squish.SquishFlags.kColourIterativeClusterFit;
-                            flags |= (int)Squish.SquishFlags.kColourMetricPerceptual;
-                            data = Squish.CompressImage(temp, flags);
-                            ms.Write(data, 0, data.Length);
-                        }
-                        else if (code == 0x61) // DXT3
-                        {
-                            Bitmap temp = BlendDXTBmp(bmp, alpha, false);
-                            byte[] data = new byte[temp.Width * temp.Height * 4];
-                            int flags = 0;
-                            flags |= (int)Squish.SquishFlags.kDxt3;
-                            flags |= (int)Squish.SquishFlags.kColourIterativeClusterFit;
-                            flags |= (int)Squish.SquishFlags.kColourMetricPerceptual;
-                            data = Squish.CompressImage(temp, flags);
-                            ms.Write(data, 0, data.Length);
-                        }
-
+                        Bitmap temp = BlendDXTBmp(bmp, alpha);
+                        byte[] data = new byte[temp.Width * temp.Height * 4];
+                        int flags = 0;
+                        
+                        flags |= code == 0x60 ? (int)Squish.SquishFlags.kDxt1 : (int)Squish.SquishFlags.kDxt3;
+                        flags |= (int)Squish.SquishFlags.kColourIterativeClusterFit;
+                        flags |= (int)Squish.SquishFlags.kColourMetricPerceptual;
+                        data = Squish.CompressImage(temp, flags);
+                      
+                        ms.Write(data, 0, data.Length);
                     }
 
                     ms.Position = 4L;
