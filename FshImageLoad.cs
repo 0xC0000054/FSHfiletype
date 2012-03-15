@@ -55,12 +55,12 @@ namespace FSHfiletype
 
         private MemoryStream Decomp(Stream input)
         {
-            byte[] bytes = QfsComp.Decomp(input, 0, (int)input.Length);
+            byte[] bytes = QfsComp.Decomp(input);
 
             return new MemoryStream(bytes);
         }
 
-        public void Load(Stream input)
+        public unsafe void Load(Stream input)
         {
             if (input.Length <= 4)
             {
@@ -240,7 +240,7 @@ namespace FSHfiletype
 
                         if (numScales > 0)
                         {
-                            throw new FileFormatException(Resources.MultiscaleBitmapsNotSupported);
+                           throw new FileFormatException(Resources.MultiscaleBitmapsNotSupported); 
                         }
                     }
 
@@ -252,7 +252,7 @@ namespace FSHfiletype
                     {
                         ms.Seek(bmppos, SeekOrigin.Begin);
 
-                        int blockCount = (((int)entry.width + 3) / 4) * (((int)entry.height + 3) / 4);
+                        int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
                         int blockSize = 8;
 
                         int ds = (blockCount * blockSize);
@@ -261,13 +261,13 @@ namespace FSHfiletype
                         ms.ProperRead(buf, 0, buf.Length);
 
                         byte[] data = Squish.DecompressImage(buf, width, height, (int)Squish.SquishFlags.kDxt1);
-                        item = BuildDxtBitmap(data, width, height, FshFileFormat.DXT1);
+                        item = BuildDxtBitmap(data, width, height);
                     }
                     else if (code == 0x61) // DXT3
                     {
                         ms.Seek(bmppos, SeekOrigin.Begin);
 
-                        int blockCount = (((int)entry.width + 3) / 4) * (((int)entry.height + 3) / 4);
+                        int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
                         int blockSize = 16;
 
                         int ds = (blockCount * blockSize);
@@ -278,9 +278,9 @@ namespace FSHfiletype
                         ms.ProperRead(buf, 0, buf.Length);
 
                         byte[] data = Squish.DecompressImage(buf, width,height, (int)Squish.SquishFlags.kDxt3);
-                        item = BuildDxtBitmap(data, width, height, FshFileFormat.DXT3);
+                        item = BuildDxtBitmap(data, width, height);
                     }
-                    else if (code == 0x7d) // 32-bit RGBA
+                    else if (code == 0x7d) // 32-bit RGBA (BGRA pixel order)
                     {
                         ms.Seek(bmppos, SeekOrigin.Begin);
 
@@ -288,31 +288,27 @@ namespace FSHfiletype
 
                         ms.ProperRead(data, 0, data.Length);
 
+                        item = new FshLoadBitmapItem(width, height);
 
-                        item = new FshLoadBitmapItem(width, height, FshFileFormat.ThirtyTwoBit);
-
-
-                        unsafe
+                        fixed (byte* ptr = data)
                         {
+                            Surface surf = item.Surface;
                             for (int y = 0; y < height; y++)
                             {
-                                ColorBgra* p = item.Surface.GetRowAddressUnchecked(y);
+                                uint* src = (uint*)ptr + (y * width);
+                                ColorBgra* p = surf.GetRowAddressUnchecked(y);
                                 for (int x = 0; x < width; x++)
                                 {
-
-                                    int offset = (y * width * 4) + (x * 4);
-
-                                    p->R = (byte)data[offset + 2]; // red 
-                                    p->G = (byte)data[offset + 1]; // green
-                                    p->B = (byte)data[offset]; // blue
-                                    p->A = (byte)data[offset + 3]; // alpha
+                                    p->Bgra = *src; // since it is BGRA just read it as a UInt32
 
                                     p++;
+                                    src++;
                                 }
-                            } 
+                            }
                         }
+                        
                     }
-                    else if (code == 0x7f) // 24-bit RGB
+                    else if (code == 0x7f) // 24-bit RGB (BGR pixel order)
                     {
                         ms.Seek(bmppos, SeekOrigin.Begin);
 
@@ -320,29 +316,30 @@ namespace FSHfiletype
 
                         ms.ProperRead(data, 0, data.Length);
 
+                        item = new FshLoadBitmapItem(width, height);
 
-                        item = new FshLoadBitmapItem(width, height, FshFileFormat.ThirtyTwoBit);
-
-
-                        unsafe
+                        fixed (byte* ptr = data)
                         {
+                            Surface surf = item.Surface;
+                            new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
+
+                            int stride = width * 3;
                             for (int y = 0; y < height; y++)
                             {
-                                ColorBgra* p = item.Surface.GetRowAddressUnchecked(y);
+                                byte* src = ptr + (y * stride);
+                                ColorBgra* p = surf.GetRowAddressUnchecked(y);
                                 for (int x = 0; x < width; x++)
                                 {
-
-                                    int offset = (y * width * 3) + (x * 3);
-
-                                    p->R = (byte)data[offset + 2]; // red 
-                                    p->G = (byte)data[offset + 1]; // green
-                                    p->B = (byte)data[offset]; // blue
-                                    p->A = 255; // alpha
+                                    p->B = src[0]; // blue
+                                    p->G = src[1]; // green
+                                    p->R = src[2]; // red 
 
                                     p++;
+                                    src += 3;
                                 }
                             }
                         }
+                        
 
                     }
 
@@ -350,7 +347,6 @@ namespace FSHfiletype
                     {
                         bitmaps.Add(item);
                     }
-
 
                 }
 	        }
@@ -374,27 +370,29 @@ namespace FSHfiletype
         /// <param name="data">The image data.</param>
         /// <param name="bmp">The output color bitmap.</param>
         /// <param name="alpha">The output alpha bitmap.</param>
-        private unsafe FshLoadBitmapItem BuildDxtBitmap(byte[] data, int width, int height, FshFileFormat format)
+        private unsafe FshLoadBitmapItem BuildDxtBitmap(byte[] data, int width, int height)
         {
+            FshLoadBitmapItem item = new FshLoadBitmapItem(width, height);
+            Surface surf = item.Surface; 
 
-            FshLoadBitmapItem item = new FshLoadBitmapItem(width, height, format); 
-            
-
-            for (int y = 0; y < height; y++)
+            fixed (byte* ptr = data)
             {
-                ColorBgra *p = item.Surface.GetRowAddressUnchecked(y);
-                for (int x = 0; x < width; x++)
+                int srcStride = width * 4;
+                for (int y = 0; y < height; y++)
                 {
-                   
-                    int offset = (y * width * 4) + (x * 4);
+                    byte* src = ptr + (y * srcStride); 
+                    ColorBgra* p = surf.GetRowAddressUnchecked(y);
+                    for (int x = 0; x < width; x++)
+                    {
+                        p->R = src[0]; // red 
+                        p->G = src[1]; // green
+                        p->B = src[2]; // blue
+                        p->A = src[3]; // alpha
 
-                    p->R = (byte)data[offset]; // red 
-                    p->G = (byte)data[offset + 1]; // green
-                    p->B = (byte)data[offset + 2]; // blue
-                    p->A = (byte)data[offset + 3]; // alpha
-
-                    p++;
-                }
+                        src += 4;
+                        p++;
+                    }
+                } 
             }
                
             
