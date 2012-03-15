@@ -168,4 +168,7 @@
   <data name="FshLayerTitle" xml:space="preserve">
     <value>Fsh Bitmap</value>
   </data>
+  <data name="UnsupportedCompressionFormat" xml:space="preserve">
+    <value>Unsupported compression format.</value>
+  </data>
 </root>
