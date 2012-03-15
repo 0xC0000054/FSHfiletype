@@ -9,6 +9,7 @@ using System.Drawing;
 using FSHLib;
 using System.Windows.Forms;
 using FSHfiletype.Properties;
+using System.Globalization;
 
 namespace FSHfiletype
 {
@@ -18,10 +19,6 @@ namespace FSHfiletype
         {
             useFshwriteComp = false;
         }
-        public FshFile(Stream input) : this()
-        {
-            this.Load(input);
-        }
 
         public Document Load(Stream input)
         {
@@ -30,18 +27,15 @@ namespace FSHfiletype
                 using (FshImageLoad loadimage = new FshImageLoad(input))
                 {
                     Document doc = new Document(loadimage.Bitmaps[0].Surface.Width, loadimage.Bitmaps[0].Surface.Height);
-                    for (int l = 0; l < loadimage.Bitmaps.Count; l++)
+                    for (int i = 0; i < loadimage.Bitmaps.Count; i++)
                     {
-                        FshLoadBitmapItem bmpitem = loadimage.Bitmaps[l];
-                        int width = bmpitem.Surface.Width;
-                        int height = bmpitem.Surface.Height;
+                        FshLoadBitmapItem bmpitem = loadimage.Bitmaps[i];
 
-                        BitmapLayer bl = new BitmapLayer(width, height) { Name = Resources.FshLayerTitle + l.ToString() };
-
-                        if (l == 0)
+                        BitmapLayer bl = new BitmapLayer(bmpitem.Surface.Width, bmpitem.Surface.Height)
                         {
-                            bl.IsBackground = true;
-                        }
+                            Name = Resources.FshLayerTitle + i.ToString(),
+                            IsBackground = (i == 0)
+                        };
 
                         bl.Surface.CopySurface(bmpitem.Surface);
                         
@@ -87,9 +81,9 @@ namespace FSHfiletype
                     image.Save(fs);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw ex;
+                throw;
             }
         }
         /// <summary>
@@ -118,7 +112,6 @@ namespace FSHfiletype
                 FSHImage saveimg = new FSHImage();
 
                 BitmapItem bmpitem = new BitmapItem();
-                Dictionary<int, Bitmap> alphalayerlist = new Dictionary<int, Bitmap>();
 
                 this.useFshwriteComp = (bool)token.GetProperty(PropertyNames.FshWriteCompression).Value;
                 bool alphaTrans = (bool)token.GetProperty(PropertyNames.AlphaFromTransparency).Value;
@@ -131,25 +124,32 @@ namespace FSHfiletype
                         BitmapLayer bl = (BitmapLayer)input.Layers[l];
                         if (bl.Visible)
                         {
-                            
                             bl.Render(ra, bl.Bounds);
 
-                            bmpitem.Bitmap = scratchSurface.CreateAliasedBitmap().Clone(bl.Bounds, PixelFormat.Format24bppRgb);
+
+
+                            using (Bitmap temp = scratchSurface.CreateAliasedBitmap())
+                            {
+                                bmpitem.Bitmap = temp.Clone(bl.Bounds, PixelFormat.Format24bppRgb);
+                            }
 
                             if (alphaTrans && format != FshFileFormat.TwentyFourBit)
                             {
-                                using(Bitmap testbmp = new Bitmap(bmpitem.Bitmap.Width, bmpitem.Bitmap.Height, PixelFormat.Format24bppRgb))
+                                using(Bitmap alpha = new Bitmap(bmpitem.Bitmap.Width, bmpitem.Bitmap.Height, PixelFormat.Format24bppRgb))
 	                            {
                                     unsafe
                                     {
-                                        BitmapData data = testbmp.LockBits(bl.Bounds, ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
+                                        BitmapData data = alpha.LockBits(bl.Bounds, ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
                                         try
                                         {
-                                            for (int y = 0; y < testbmp.Height; y++)
+
+                                            void* scan0 = data.Scan0.ToPointer();
+                                            int stride = data.Stride;
+                                            for (int y = 0; y < alpha.Height; y++)
                                             {
                                                 ColorBgra* src = scratchSurface.GetRowAddressUnchecked(y);
-                                                byte* dst = (byte*)data.Scan0.ToPointer() + (y * data.Stride); 
-                                                for (int x = 0; x < testbmp.Width; x++)
+                                                byte* dst = (byte*)scan0 + (y * stride); 
+                                                for (int x = 0; x < alpha.Width; x++)
                                                 {
                                                     dst[0] = dst[1] = dst[2] = src->A;
 
@@ -160,10 +160,10 @@ namespace FSHfiletype
                                         }
                                         finally
                                         {
-                                            testbmp.UnlockBits(data);
+                                            alpha.UnlockBits(data);
                                         }
                                     }
-                                    bmpitem.Alpha = testbmp.CloneT<Bitmap>(); 
+                                    bmpitem.Alpha = alpha.CloneT<Bitmap>(); 
 	                            }
 
                                 if (format == FshFileFormat.ThirtyTwoBit)
@@ -175,7 +175,6 @@ namespace FSHfiletype
                                     bmpitem.BmpType = FSHBmpType.DXT3;
                                 }
 
-
                             }
                             else
                             {
@@ -184,7 +183,7 @@ namespace FSHfiletype
                                     alphasrc.Clear(ColorBgra.White);
                                     using (RenderArgs alphagen = new RenderArgs(alphasrc))
                                     {
-                                        bmpitem.Alpha = alphagen.Bitmap.CloneT<Bitmap>();
+                                        bmpitem.Alpha = alphagen.Bitmap.Clone(alphasrc.Bounds, PixelFormat.Format24bppRgb);
                                         if (format == FshFileFormat.TwentyFourBit)
                                         {
                                             bmpitem.BmpType = FSHBmpType.TwentyFourBit;
