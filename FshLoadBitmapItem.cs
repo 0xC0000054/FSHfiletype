@@ -9,7 +9,6 @@ namespace FSHfiletype
     class FshLoadBitmapItem : IDisposable
     {
         private Surface surface;
-        private FshFileFormat format;
 
         public Surface Surface
         {
@@ -23,29 +22,14 @@ namespace FSHfiletype
             }
         }
 
-        public FshFileFormat Format
-        {
-            get
-            {
-                return format;
-            }
-            internal set
-            {
-                format = value;
-            }
-        }
-
         public FshLoadBitmapItem()
         {
-            this.disposed = false;
-            this.surface = null;
-            this.format = FshFileFormat.DXT1;
         }
 
-        public FshLoadBitmapItem(int width, int height, FshFileFormat format) : this()
-        {
+        public FshLoadBitmapItem(int width, int height) 
+        {            
+            this.disposed = false;
             this.surface = new Surface(width, height);
-            this.format = format;
         }
 
         private bool disposed;
