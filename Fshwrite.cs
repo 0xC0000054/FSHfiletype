@@ -56,10 +56,10 @@ namespace FSHfiletype
                             for (int x = 0; x < temp.Width; x++)
                             {
 
-                                dst[0] = dst[0];
-                                dst[1] = dst[1];
-                                dst[2] = dst[2];
-                                dst[3] = dst[0];
+                                dst[0] = clr[0];
+                                dst[1] = clr[1];
+                                dst[2] = clr[2];
+                                dst[3] = al[0];
 
 
                                 clr += 3;
