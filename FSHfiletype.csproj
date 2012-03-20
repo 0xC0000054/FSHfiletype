@@ -56,6 +56,7 @@
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
@@ -66,10 +67,6 @@
   </Target>
   -->
   <ItemGroup>
-    <Reference Include="FSHLib, Version=0.3.1.32075, Culture=neutral">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Fshlib_vista\Fshlib_vista\FSHLib.dll</HintPath>
-    </Reference>
     <Reference Include="PaintDotNet.Base">
       <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.Base.dll</HintPath>
     </Reference>
@@ -96,12 +93,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BlendBmp.cs" />
+    <Compile Include="DXTComp.cs" />
     <Compile Include="FshFile.cs" />
     <Compile Include="FshFileFormat.cs" />
+    <Compile Include="FshHeaders.cs" />
     <Compile Include="FshImageLoad.cs" />
     <Compile Include="FshLoadBitmapItem.cs" />
-    <Compile Include="Fshwrite.cs" />
     <Compile Include="PropertyNames.cs" />
     <Compile Include="QfsComp.cs" />
     <Compile Include="FshFiletype.cs" />
@@ -139,7 +136,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <PropertyGroup>
-    <PostBuildEvent>Copy "$(TargetPath)" "C:\Program Files\Paint.NET\FileTypes" /y
+    <PostBuildEvent>copy "$(TargetPath)" "C:\Program Files\Paint.NET\FileTypes" /y
 if "$(ConfigurationName)" == "Debug" copy "$(TargetDir)$(TargetName).pdb" "C:\Program Files\Paint.NET\FileTypes" /y
 </PostBuildEvent>
   </PropertyGroup>
