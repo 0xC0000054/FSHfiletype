@@ -153,9 +153,6 @@
   <data name="FshWriteText" xml:space="preserve">
     <value>Fshwrite compression</value>
   </data>
-  <data name="MultiscaleBitmapsNotSupported" xml:space="preserve">
-    <value>Multiscale bitmaps are not supported.</value>
-  </data>
   <data name="CompressedEntriesNotSupported" xml:space="preserve">
     <value>Compressed entries are not supported.</value>
   </data>
