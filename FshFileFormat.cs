@@ -5,12 +5,12 @@ using System.Text;
 
 namespace FSHfiletype
 {
-    internal enum FshFileFormat 
+    internal enum FshFileFormat : byte
     {
-        TwentyFourBit,
-        ThirtyTwoBit,
-        DXT1,
-        DXT3
+        TwentyFourBit = 0x7f,
+        ThirtyTwoBit = 0x7d,
+        DXT1 = 0x60,
+        DXT3 = 0x61
     }
 
 
