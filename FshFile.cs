@@ -25,15 +25,17 @@ namespace FSHfiletype
 		{
 			try
 			{
-				using (FshImageLoad loadimage = new FshImageLoad(input))
+				using (FshImageLoad image = new FshImageLoad(input))
 				{
-					Document doc = new Document(loadimage.Bitmaps[0].Surface.Width, loadimage.Bitmaps[0].Surface.Height);
+					Document doc = new Document(image.Bitmaps[0].Surface.Width, image.Bitmaps[0].Surface.Height);
 					string fshName = Resources.FshLayerTitle;
-					for (int i = 0; i < loadimage.Bitmaps.Count; i++)
+                    int count = image.Bitmaps.Count;
+					for (int i = 0; i < count; i++)
 					{
-						FshLoadBitmapItem bmpitem = loadimage.Bitmaps[i];
+						FshLoadBitmapItem bmpitem = image.Bitmaps[i];
 
-						BitmapLayer bl = new BitmapLayer(bmpitem.Surface.Width, bmpitem.Surface.Height)
+
+						BitmapLayer bl = new BitmapLayer(bmpitem.Surface)
 						{
 							Name = fshName + i.ToString(),
 							IsBackground = (i == 0)
@@ -43,7 +45,6 @@ namespace FSHfiletype
 							bmpitem.EmbeddedMipCount.ToString(CultureInfo.InvariantCulture), bmpitem.MipPadding.ToString());
 
 						bl.Metadata.SetUserValue(fshMetadata, data);
-						bl.Surface.CopySurface(bmpitem.Surface);
 						
 						doc.Layers.Add(bl);
 					}
