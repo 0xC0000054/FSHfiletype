@@ -6,9 +6,12 @@ using PaintDotNet;
 
 namespace FSHfiletype
 {
-    class FshLoadBitmapItem : IDisposable
+    internal class FshLoadBitmapItem : IDisposable
     {
         private Surface surface;
+        private string dirName;
+        private int mipCount;
+        private bool mipPadding;
 
         public Surface Surface
         {
@@ -16,11 +19,48 @@ namespace FSHfiletype
             {
                 return surface;
             }
-            internal set
+            set
             {
                 surface = value;
             }
         }
+
+        public string DirName
+        {
+            get
+            {
+                return dirName;
+            }
+            set
+            {
+                dirName = value;
+            }
+        }
+
+        public int EmbeddedMipCount
+        {
+            get
+            {
+                return mipCount;
+            }
+            set
+            {
+                mipCount = value;
+            }
+        }
+
+        public bool MipPadding
+        {
+            get
+            {
+                return mipPadding;
+            }
+            set
+            {
+                mipPadding = value;
+            }
+        }
+
 
         public FshLoadBitmapItem()
         {
@@ -41,7 +81,9 @@ namespace FSHfiletype
         private void Dispose(bool disposing)
         {
             if (!disposed)
-            {
+            {              
+                disposed = true;
+
                 if (disposing)
                 {
                     if (surface != null)
@@ -49,8 +91,7 @@ namespace FSHfiletype
                         surface.Dispose();
                         surface = null;
                     }
-                    disposed = true;
-                }
+                }                  
             }
         }
 
