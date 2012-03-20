@@ -29,7 +29,7 @@ namespace FSHfiletype
 				{
 					Document doc = new Document(image.Bitmaps[0].Surface.Width, image.Bitmaps[0].Surface.Height);
 					string fshName = Resources.FshLayerTitle;
-                    int count = image.Bitmaps.Count;
+					int count = image.Bitmaps.Count;
 					for (int i = 0; i < count; i++)
 					{
 						FshLoadBitmapItem bmpitem = image.Bitmaps[i];
@@ -113,12 +113,18 @@ namespace FSHfiletype
 				this.useFshwriteComp = (bool)token.GetProperty(PropertyNames.FshWriteCompression).Value;
 				bool alphaTrans = (bool)token.GetProperty(PropertyNames.AlphaFromTransparency).Value;
 				FshFileFormat format = (FshFileFormat)token.GetProperty(PropertyNames.FileType).Value;
+				string dirText = (string)token.GetProperty(PropertyNames.DirectoryName).Value;
+
+				if (dirText.Length < 4)
+				{
+					dirText = "FiSH";
+				}
 
 				int count = input.Layers.Count;
 				List<byte[]> dirs = new List<byte[]>(count); 
 				List<MipData> mipCount = new List<MipData>(count);
 				Encoding ascii = Encoding.ASCII;
-				byte[] dirName = ascii.GetBytes("FiSH");
+				byte[] dirName = ascii.GetBytes(dirText);
 
 				for (int i = 0; i < count; i++)
 				{
@@ -136,7 +142,7 @@ namespace FSHfiletype
 					else
 					{
 						dirs.Add(dirName);
-                        mipCount.Add(new MipData() { layerWidth = item.Width, layerHeight = item.Height });
+						mipCount.Add(new MipData() { layerWidth = item.Width, layerHeight = item.Height });
 					}
 				}
 
@@ -215,11 +221,14 @@ namespace FSHfiletype
 						output.Write(data, 0, dataLen);
 					}
 
-					long offset = output.Position - entryStart;                 
-					int newCode = (((int)offset << 8) | code);
+					if (mips.count > 0)
+					{
+						long sectionLength = output.Position - entryStart;
+						int newCode = (((int)sectionLength << 8) | code);
 
-					output.Seek(entryStart, SeekOrigin.Begin);
-					output.Write(BitConverter.GetBytes(newCode), 0, 4);	
+						output.Seek(entryStart, SeekOrigin.Begin);
+						output.Write(BitConverter.GetBytes(newCode), 0, 4);	 
+					}
 				}
 
 				output.Seek(4L, SeekOrigin.Begin);
