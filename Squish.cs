@@ -5,6 +5,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Drawing.Imaging;
 using System.Drawing;
+using PaintDotNet;
 
 namespace FSHfiletype
 {
@@ -14,10 +15,6 @@ namespace FSHfiletype
         {
             [DllImport(@"Native.x86\PaintDotNet.Native.x86.dll")]
             public static extern unsafe void SquishCompressImage(byte* rgba, int width, int height, byte* blocks, int flags, [MarshalAs(UnmanagedType.FunctionPtr)]  ProgressFn pf);
-
-            [DllImport(@"Native.x86\PaintDotNet.Native.x86.dll")]
-            public static extern unsafe void SquishDecompressImage(byte* rgba, int width, int height, byte* blocks, int flags, [MarshalAs(UnmanagedType.FunctionPtr)]  ProgressFn pf);
-
             [DllImport(@"Native.x86\PaintDotNet.Native.x86.dll")]
             public static extern void SquishInitialize();
         }
@@ -28,8 +25,6 @@ namespace FSHfiletype
             //"PaintDotNet.SystemLayer.Native.x64.dll" // Paint.NET 4 
             [DllImport(@"Native.x64\PaintDotNet.Native.x64.dll")]
             public static extern unsafe void SquishCompressImage(byte* rgba, int width, int height, byte* blocks, int flags, [MarshalAs(UnmanagedType.FunctionPtr)]  ProgressFn pf);
-            [DllImport(@"Native.x64\PaintDotNet.Native.x64.dll")]
-            public static extern unsafe void SquishDecompressImage(byte* rgba, int width, int height, byte* blocks, int flags, [MarshalAs(UnmanagedType.FunctionPtr)]  ProgressFn pf);
             [DllImport(@"Native.x64\PaintDotNet.Native.x64.dll")]
             public static extern void SquishInitialize();
         }
@@ -62,49 +57,34 @@ namespace FSHfiletype
 
         }
 
-        internal static byte[] CompressImage(Bitmap image, int flags)
+        internal static unsafe byte[] CompressImage(Surface image, int flags)
         {
-            byte[] pixelData = new byte[image.Width * image.Height * 4];
+            byte[] pixelData = new byte[(image.Width * image.Height * 4) + 2000];
 
-
-            BitmapData data = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            try
+                
+            fixed (byte* ptr = pixelData)
             {
-                unsafe
+                int width = image.Width;
+                int height = image.Height;
+                int dstStride = width * 4;
+
+                for (int y = 0; y < height; y++)
                 {
-
-
-                    fixed (byte* ptr = pixelData)
+                    ColorBgra* p = image.GetRowAddressUnchecked(y);
+                    byte* dst = ptr + (y * dstStride);
+                    for (int x = 0; x < width; x++)
                     {
-                        int width = image.Width;
-                        int height = image.Height;
-                        void* scan0 = data.Scan0.ToPointer();
-                        int stride = data.Stride;
-                        int dstStride = width * 4;
+                        dst[0] = p->R;
+                        dst[1] = p->G;
+                        dst[2] = p->B;
+                        dst[3] = p->A;
 
-                        for (int y = 0; y < height; y++)
-                        {
-                            byte* p = (byte*)scan0 + (y * stride);
-                            byte* dst = ptr + (y * dstStride);
-                            for (int x = 0; x < width; x++)
-                            {
-                                pixelData[0] = p[2];
-                                pixelData[1] = p[1];
-                                pixelData[2] = p[0];
-                                pixelData[3] = p[3];
-
-                                p += 4;
-                                dst += 4;
-                            }
-                        } 
+                        p++;
+                        dst += 4;
                     }
-                }
+                } 
             }
-            finally
-            {
-                image.UnlockBits(data);
-            }
-
+                
             // Compute size of compressed block area, and allocate 
             int blockCount = ((image.Width + 3) / 4) * ((image.Height + 3) / 4);
             int blockSize = ((flags & (int)SquishFlags.kDxt1) != 0) ? 8 : 16;
@@ -150,33 +130,6 @@ namespace FSHfiletype
                     }
                 }
             }
-        }
-
-        private unsafe static void CallDecompressImage(byte[] rgba, int width, int height, byte[] blocks, int flags)
-        {
-            fixed (byte* pRGBA = rgba)
-            {
-                fixed (byte* pBlocks = blocks)
-                {
-                    if (Is64bit())
-                    {
-                        Squish_64.SquishDecompressImage(pRGBA, width, height, pBlocks, flags, null);
-                    }
-                    else
-                    {
-                        Squish_32.SquishDecompressImage(pRGBA, width, height, pBlocks, flags, null);
-                    }
-                }
-            }
-        }
-
-        internal static byte[] DecompressImage(byte[] blocks, int width, int height, int flags)
-        {
-            byte[] rgba = new byte[(width * height) * 4];
-
-            CallDecompressImage(rgba, width, height, blocks, flags);
-
-            return rgba;
         }
     }
 }
