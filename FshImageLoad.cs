@@ -158,7 +158,15 @@ namespace FSHfiletype
 						throw new FileFormatException(Resources.CompressedEntriesNotSupported);
 					}
 
-					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f));
+					if (code == 0x7b || code == 0x6d || code == 0x78 || code == 0x7e)
+					{
+						throw new FileFormatException(Resources.UnsupportedFshFormat);
+					}
+ 
+					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f) || (code == 0x7b));
+					
+					int numScales = (entry.misc[3] >> 12) & 0x0f;
+					bool packedMbp = false;
 
 					if (isbmp)
 					{
@@ -174,173 +182,169 @@ namespace FSHfiletype
 								break;
 							}
 							nAttach++;
-						} 
-					}
-
-
-					int numScales = (entry.misc[3] >> 12) & 0x0f;
-					bool packedMbp = false;
-					if (((entry.width % 1) << numScales) > 0 || ((entry.height % 1) << numScales) > 0)
-					{
-						numScales = 0;
-					}
-
-					if (numScales > 0)
-					{
-						int bpp = 0;
-						int mbpLen = 0;
-						int mbpPadLen = 0;
-						int bmpw = 0;
-						switch (code)
-						{
-							case 0x7b:
-							case 0x61:
-								bpp = 2;
-								break;
-							case 0x7d:
-								bpp = 8;
-								break;
-							case 0x7f:
-								bpp = 6;
-								break;
-							case 0x60:
-								bpp = 1;
-								break;
 						}
-						for (int n = 0; n <= numScales; n++)
-						{
-							bmpw = (entry.width >> n);
-							int bmph = (entry.height >> n);
-							if (code == 0x60)
-							{
-								bmpw += (4 - bmpw) & 3;
-								bmph += (4 - bmph) & 3;
-							}
-							mbpLen += (bmpw * bmph) * bpp / 2;
-							mbpPadLen += (bmpw * bmph) * bpp / 2;
 
-							if (code != 0x60)
+
+
+						if (((entry.width % 1) << numScales) > 0 || ((entry.height % 1) << numScales) > 0)
+						{
+							numScales = 0;
+						}
+
+						if (numScales > 0)
+						{
+							int bpp = 0;
+							int mbpLen = 0;
+							int mbpPadLen = 0;
+							int bmpw = 0;
+							switch (code)
 							{
-								mbpLen += ((16 - mbpLen) & 15); // padding
-								if (n == numScales)
+								case 0x7b:
+								case 0x61:
+									bpp = 2;
+									break;
+								case 0x7d:
+									bpp = 8;
+									break;
+								case 0x7f:
+									bpp = 6;
+									break;
+								case 0x60:
+									bpp = 1;
+									break;
+							}
+							for (int n = 0; n <= numScales; n++)
+							{
+								bmpw = (entry.width >> n);
+								int bmph = (entry.height >> n);
+								if (code == 0x60)
 								{
-									mbpPadLen += ((16 - mbpPadLen) & 15);
+									bmpw += (4 - bmpw) & 3;
+									bmph += (4 - bmph) & 3;
+								}
+								mbpLen += (bmpw * bmph) * bpp / 2;
+								mbpPadLen += (bmpw * bmph) * bpp / 2;
+
+								if (code != 0x60)
+								{
+									mbpLen += ((16 - mbpLen) & 15); // padding
+									if (n == numScales)
+									{
+										mbpPadLen += ((16 - mbpPadLen) & 15);
+									}
+								}
+							}
+							if (((entry.code >> 8) != mbpLen + 16) && ((entry.code >> 8) != 0) ||
+								((entry.code >> 8) == 0) && ((mbpLen + dir.offset + 16) != size))
+							{
+								packedMbp = true;
+								if (((entry.code >> 8) != mbpPadLen + 16) && ((entry.code >> 8) != 0) ||
+								((entry.code >> 8) == 0) && ((mbpPadLen + dir.offset + 16) != size))
+								{
+									numScales = 0;
 								}
 							}
 						}
-						if (((entry.code >> 8) != mbpLen + 16) && ((entry.code >> 8) != 0) ||
-							((entry.code >> 8) == 0) && ((mbpLen + dir.offset + 16) != size))
+
+
+						FshLoadBitmapItem item = null;
+						int width = (int)entry.width;
+						int height = (int)entry.height;
+						long bmppos = (long)(dir.offset + 16);
+						if (code == 0x60) // DXT1
 						{
-							packedMbp = true;
-							if (((entry.code >> 8) != mbpPadLen + 16) && ((entry.code >> 8) != 0) ||
-							((entry.code >> 8) == 0) && ((mbpPadLen + dir.offset + 16) != size))
-							{
-								numScales = 0;
-							}
-						} 
-					}
+							ms.Seek(bmppos, SeekOrigin.Begin);
 
-					FshLoadBitmapItem item = null;
-					int width = (int)entry.width;
-					int height = (int)entry.height;
-					long bmppos = (long)(dir.offset + 16);
-					if (code == 0x60) // DXT1
-					{
-						ms.Seek(bmppos, SeekOrigin.Begin);
+							int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
+							int blockSize = 8;
 
-						int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
-						int blockSize = 8;
+							int ds = (blockCount * blockSize);
+							byte[] buf = new byte[ds];
 
-						int ds = (blockCount * blockSize);
-						byte[] buf = new byte[ds];
-					  
-						ms.ProperRead(buf, 0, buf.Length);
+							ms.ProperRead(buf, 0, buf.Length);
 
-						byte[] data = DXTComp.UnpackDXTImage(buf, width, height, true);
-						item = BuildDxtBitmap(data, width, height);
-					}
-					else if (code == 0x61) // DXT3
-					{
-						ms.Seek(bmppos, SeekOrigin.Begin);
-
-						int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
-						int blockSize = 16;
-
-						int ds = (blockCount * blockSize);
-
-
-
-						byte[] buf = new byte[ds];
-						ms.ProperRead(buf, 0, buf.Length);
-
-						byte[] data = DXTComp.UnpackDXTImage(buf, width,height, false);
-						item = BuildDxtBitmap(data, width, height);
-					}
-					else if (code == 0x7d) // 32-bit RGBA (BGRA pixel order)
-					{
-						ms.Seek(bmppos, SeekOrigin.Begin);
-
-						byte[] data = new byte[(width * height) * 4];
-
-						ms.ProperRead(data, 0, data.Length);
-
-						item = new FshLoadBitmapItem(width, height);
-
-						fixed (byte* ptr = data)
+							byte[] data = DXTComp.UnpackDXTImage(buf, width, height, true);
+							item = BuildDxtBitmap(data, width, height);
+						}
+						else if (code == 0x61) // DXT3
 						{
-							Surface surf = item.Surface;
-							for (int y = 0; y < height; y++)
+							ms.Seek(bmppos, SeekOrigin.Begin);
+
+							int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
+							int blockSize = 16;
+
+							int ds = (blockCount * blockSize);
+
+
+
+							byte[] buf = new byte[ds];
+							ms.ProperRead(buf, 0, buf.Length);
+
+							byte[] data = DXTComp.UnpackDXTImage(buf, width, height, false);
+							item = BuildDxtBitmap(data, width, height);
+						}
+						else if (code == 0x7d) // 32-bit RGBA (BGRA pixel order)
+						{
+							ms.Seek(bmppos, SeekOrigin.Begin);
+
+							byte[] data = new byte[(width * height) * 4];
+
+							ms.ProperRead(data, 0, data.Length);
+
+							item = new FshLoadBitmapItem(width, height);
+
+							fixed (byte* ptr = data)
 							{
-								uint* src = (uint*)ptr + (y * width);
-								ColorBgra* p = surf.GetRowAddressUnchecked(y);
-								for (int x = 0; x < width; x++)
+								Surface surf = item.Surface;
+								for (int y = 0; y < height; y++)
 								{
-									p->Bgra = *src; // since it is BGRA just read it as a UInt32
+									uint* src = (uint*)ptr + (y * width);
+									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+									for (int x = 0; x < width; x++)
+									{
+										p->Bgra = *src; // since it is BGRA just read it as a UInt32
 
-									p++;
-									src++;
+										p++;
+										src++;
+									}
 								}
 							}
+
 						}
-						
-					}
-					else if (code == 0x7f) // 24-bit RGB (BGR pixel order)
-					{
-						ms.Seek(bmppos, SeekOrigin.Begin);
-
-						byte[] data = new byte[(width * height) * 3];
-
-						ms.ProperRead(data, 0, data.Length);
-
-						item = new FshLoadBitmapItem(width, height);
-
-						fixed (byte* ptr = data)
+						else if (code == 0x7f) // 24-bit RGB (BGR pixel order)
 						{
-							Surface surf = item.Surface;
-							new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
+							ms.Seek(bmppos, SeekOrigin.Begin);
 
-							int stride = width * 3;
-							for (int y = 0; y < height; y++)
+							byte[] data = new byte[(width * height) * 3];
+
+							ms.ProperRead(data, 0, data.Length);
+
+							item = new FshLoadBitmapItem(width, height);
+
+							fixed (byte* ptr = data)
 							{
-								byte* src = ptr + (y * stride);
-								ColorBgra* p = surf.GetRowAddressUnchecked(y);
-								for (int x = 0; x < width; x++)
-								{
-									p->B = src[0]; // blue
-									p->G = src[1]; // green
-									p->R = src[2]; // red 
+								Surface surf = item.Surface;
+								new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
 
-									p++;
-									src += 3;
+								int stride = width * 3;
+								for (int y = 0; y < height; y++)
+								{
+									byte* src = ptr + (y * stride);
+									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+									for (int x = 0; x < width; x++)
+									{
+										p->B = src[0]; // blue
+										p->G = src[1]; // green
+										p->R = src[2]; // red 
+
+										p++;
+										src += 3;
+									}
 								}
 							}
+
 						}
-						
 
-					}
-
-					if (isbmp)
-					{
 						item.DirName = Encoding.ASCII.GetString(dir.name);
 						item.EmbeddedMipCount = numScales;
 						item.MipPadding = packedMbp;
