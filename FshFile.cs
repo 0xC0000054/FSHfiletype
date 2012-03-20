@@ -6,211 +6,317 @@ using PaintDotNet;
 using System.IO;
 using System.Drawing.Imaging;
 using System.Drawing;
-using FSHLib;
 using System.Windows.Forms;
 using FSHfiletype.Properties;
 using System.Globalization;
 
 namespace FSHfiletype
 {
-    class FshFile
-    {
-        public FshFile()
-        {
-            useFshwriteComp = false;
-        }
+	class FshFile
+	{
+		public FshFile()
+		{
+			useFshwriteComp = false;
+		}
 
-        public Document Load(Stream input)
-        {
-            try
-            {
-                using (FshImageLoad loadimage = new FshImageLoad(input))
-                {
-                    Document doc = new Document(loadimage.Bitmaps[0].Surface.Width, loadimage.Bitmaps[0].Surface.Height);
-                    for (int i = 0; i < loadimage.Bitmaps.Count; i++)
-                    {
-                        FshLoadBitmapItem bmpitem = loadimage.Bitmaps[i];
+		private const string fshMetadata = "FshData";
 
-                        BitmapLayer bl = new BitmapLayer(bmpitem.Surface.Width, bmpitem.Surface.Height)
-                        {
-                            Name = Resources.FshLayerTitle + i.ToString(),
-                            IsBackground = (i == 0)
-                        };
+		public Document Load(Stream input)
+		{
+			try
+			{
+				using (FshImageLoad loadimage = new FshImageLoad(input))
+				{
+					Document doc = new Document(loadimage.Bitmaps[0].Surface.Width, loadimage.Bitmaps[0].Surface.Height);
+					string fshName = Resources.FshLayerTitle;
+					for (int i = 0; i < loadimage.Bitmaps.Count; i++)
+					{
+						FshLoadBitmapItem bmpitem = loadimage.Bitmaps[i];
 
-                        bl.Surface.CopySurface(bmpitem.Surface);
-                        
-                        doc.Layers.Add(bl);
-                    }
+						BitmapLayer bl = new BitmapLayer(bmpitem.Surface.Width, bmpitem.Surface.Height)
+						{
+							Name = fshName + i.ToString(),
+							IsBackground = (i == 0)
+						};
 
-                    return doc; 
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, Resources.ErrorLoadingCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return null;
-            }
-        }
+						string data = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2}", bmpitem.DirName, 
+							bmpitem.EmbeddedMipCount.ToString(CultureInfo.InvariantCulture), bmpitem.MipPadding.ToString());
 
-        /// <summary>
-        /// Saves a fsh using either FshWrite or FSHLib
-        /// </summary>
-        /// <param name="fs">The stream to save to</param>
-        /// <param name="image">The image to save</param>
-        private void SaveFsh(Stream fs, FSHImage image)
-        {
-            try
-            {
-                if (IsDXTFsh(image) && useFshwriteComp)
-                {
-                    Fshwrite fw = new Fshwrite();
-                    foreach (BitmapItem bi in image.Bitmaps)
-                    {
-                        if ((bi.Bitmap != null && bi.Alpha != null) && bi.BmpType == FSHBmpType.DXT1 || bi.BmpType == FSHBmpType.DXT3)
-                        {
-                            fw.bmp.Add(bi.Bitmap);
-                            fw.alpha.Add(bi.Alpha);
-                            fw.dir.Add(bi.DirName);
-                            fw.code.Add((int)bi.BmpType);
-                        }
-                    }
-                    fw.WriteFsh(fs);
-                }
-                else
-                {
-                    image.Save(fs);
-                }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-        /// <summary>
-        /// Test if the fsh only contains DXT1 or DXT3 items
-        /// </summary>
-        /// <param name="image">The image to test</param>
-        /// <returns>True if successful otherwise false</returns>
-        private bool IsDXTFsh(FSHImage image)
-        {
-            bool result = true;
-            foreach (BitmapItem bi in image.Bitmaps)
-            {
-                if (bi.BmpType != FSHBmpType.DXT3 && bi.BmpType != FSHBmpType.DXT1)
-                {
-                    result = false;
-                }
-            }
-            return result;
-        }
-        private bool useFshwriteComp;
+						bl.Metadata.SetUserValue(fshMetadata, data);
+						bl.Surface.CopySurface(bmpitem.Surface);
+						
+						doc.Layers.Add(bl);
+					}
 
-        public void Save(Document input, Stream output, PropertyBasedSaveConfigToken token, Surface scratchSurface)
-        {
-            try
-            {
-                FSHImage saveimg = new FSHImage();
+					return doc; 
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show(ex.Message, Resources.ErrorLoadingCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return null;
+			}
+		}
 
-                BitmapItem bmpitem = new BitmapItem();
+		private bool useFshwriteComp;
 
-                this.useFshwriteComp = (bool)token.GetProperty(PropertyNames.FshWriteCompression).Value;
-                bool alphaTrans = (bool)token.GetProperty(PropertyNames.AlphaFromTransparency).Value;
-                FshFileFormat format = (FshFileFormat)token.GetProperty(PropertyNames.FileType).Value;
+		private int GetBmpDataSize(int width, int height, FshFileFormat format)
+		{
+			int ret = -1;
+			switch (format)
+			{
+				case FshFileFormat.TwentyFourBit:
+					ret = (width * height * 3);
+					break;
+				case FshFileFormat.ThirtyTwoBit:
+					ret = (width * height * 4);
+					break;
+				case FshFileFormat.DXT1:
+					ret = (width * height / 2); 
+					break;
+				case FshFileFormat.DXT3:
+					ret = (width * height); 
+					break;
+			}
+			return ret;
+		}
 
-                using (RenderArgs ra = new RenderArgs(scratchSurface))
-                {
-                    for (int l = 0; l < input.Layers.Count; l++)
-                    {
-                        BitmapLayer bl = (BitmapLayer)input.Layers[l];
-                        if (bl.Visible)
-                        {
-                            bl.Render(ra, bl.Bounds);
+		private struct MipData
+		{
+			public int count;
+			public bool hasPadding;
+			public int layerWidth;
+			public int layerHeight;
 
+			public MipData(int count, bool padded, Size size)
+			{
+				this.count = count;
+				this.hasPadding = padded;
+				this.layerWidth = size.Width;
+				this.layerHeight = size.Height;
+			}
+		}
 
+		/// <summary>
+		/// Saves the specified input.
+		/// </summary>
+		/// <param name="input">The input.</param>
+		/// <param name="output">The output.</param>
+		/// <param name="token">The token.</param>
+		/// <param name="scratchSurface">The scratch surface.</param>
+		public unsafe void Save(Document input, Stream output, PropertyBasedSaveConfigToken token, Surface scratchSurface)
+		{
+			try
+			{
 
-                            using (Bitmap temp = scratchSurface.CreateAliasedBitmap())
-                            {
-                                bmpitem.Bitmap = temp.Clone(bl.Bounds, PixelFormat.Format24bppRgb);
-                            }
+				this.useFshwriteComp = (bool)token.GetProperty(PropertyNames.FshWriteCompression).Value;
+				bool alphaTrans = (bool)token.GetProperty(PropertyNames.AlphaFromTransparency).Value;
+				FshFileFormat format = (FshFileFormat)token.GetProperty(PropertyNames.FileType).Value;
 
-                            if (alphaTrans && format != FshFileFormat.TwentyFourBit)
-                            {
-                                using(Bitmap alpha = new Bitmap(bmpitem.Bitmap.Width, bmpitem.Bitmap.Height, PixelFormat.Format24bppRgb))
-	                            {
-                                    unsafe
-                                    {
-                                        BitmapData data = alpha.LockBits(bl.Bounds, ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
-                                        try
-                                        {
+				int count = input.Layers.Count;
+				List<byte[]> dirs = new List<byte[]>(count); 
+				List<MipData> mipCount = new List<MipData>(count);
+				Encoding ascii = Encoding.ASCII;
+				byte[] dirName = ascii.GetBytes("FiSH");
 
-                                            void* scan0 = data.Scan0.ToPointer();
-                                            int stride = data.Stride;
-                                            for (int y = 0; y < alpha.Height; y++)
-                                            {
-                                                ColorBgra* src = scratchSurface.GetRowAddressUnchecked(y);
-                                                byte* dst = (byte*)scan0 + (y * stride); 
-                                                for (int x = 0; x < alpha.Width; x++)
-                                                {
-                                                    dst[0] = dst[1] = dst[2] = src->A;
+				for (int i = 0; i < count; i++)
+				{
 
-                                                    src++;
-                                                    dst += 3;
-                                                }
-                                            }
-                                        }
-                                        finally
-                                        {
-                                            alpha.UnlockBits(data);
-                                        }
-                                    }
-                                    bmpitem.Alpha = alpha.CloneT<Bitmap>(); 
-	                            }
+					Layer item = (Layer)input.Layers[i];
+					string val = item.Metadata.GetUserValue(fshMetadata);
+					if (!string.IsNullOrEmpty(val))
+					{
+						string[] data = val.Split(',');
 
-                                if (format == FshFileFormat.ThirtyTwoBit)
-                                {
-                                    bmpitem.BmpType = FSHBmpType.ThirtyTwoBit;
-                                }
-                                else
-                                {
-                                    bmpitem.BmpType = FSHBmpType.DXT3;
-                                }
+						dirs.Add(ascii.GetBytes(data[0]));
 
-                            }
-                            else
-                            {
-                                using (Surface alphasrc = new Surface(input.Size))
-                                {
-                                    alphasrc.Clear(ColorBgra.White);
-                                    using (RenderArgs alphagen = new RenderArgs(alphasrc))
-                                    {
-                                        bmpitem.Alpha = alphagen.Bitmap.Clone(alphasrc.Bounds, PixelFormat.Format24bppRgb);
-                                        if (format == FshFileFormat.TwentyFourBit)
-                                        {
-                                            bmpitem.BmpType = FSHBmpType.TwentyFourBit;
-                                        }
-                                        else
-                                        {
-                                            bmpitem.BmpType = FSHBmpType.DXT1;
-                                        }
-                                    }
-                                }
-                            }
+						mipCount.Add(new MipData(int.Parse(data[1], CultureInfo.InvariantCulture), bool.Parse(data[2]), item.Size)); 
+					}
+					else
+					{
+						dirs.Add(dirName);
+						mipCount.Add(new MipData());
+					}
+				}
 
-                            saveimg.Bitmaps.Add(bmpitem);
-                        }
-                    }
+				//write header
+				output.Write(ascii.GetBytes("SHPI"), 0, 4); // write SHPI id
+				output.Write(BitConverter.GetBytes(0), 0, 4); // placeholder for the length
+				output.Write(BitConverter.GetBytes(count), 0, 4); // write the number of bitmaps in the list
+				output.Write(ascii.GetBytes("G264"), 0, 4); // header directory
 
-                    saveimg.UpdateDirty();
-                    SaveFsh(output, saveimg);
-                }
+				int fshlen = 16 + (8 * count); // fsh length
 
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, Resources.ErrorSavingCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
+				int bmpw, bmph; 
+				for (int i = 0; i < count; i++)
+				{
+					output.Write(dirs[i], 0, 4);
+					output.Write(BitConverter.GetBytes(fshlen), 0, 4);
+
+					MipData data =  mipCount[i];
+					for (int j = 0; j <= data.count; j++)
+					{
+						bmpw = (data.layerWidth >> j);
+						bmph = (data.layerHeight >> j);
+
+						fshlen += GetBmpDataSize(bmpw, bmph, format);               
+					}
+				}
+
+				for (int i = 0; i < count; i++)
+				{
+					BitmapLayer bl = (BitmapLayer)input.Layers[i];
+						
+					// write the entry header
+					int code = (int)format;
+					long entryStart = output.Position;
+
+					output.Write(BitConverter.GetBytes(code), 0, 4);
+					output.Write(BitConverter.GetBytes((ushort)bl.Width), 0, 2);
+					output.Write(BitConverter.GetBytes((ushort)bl.Height), 0, 2);
+						
+					MipData mips = mipCount[i];
+					int nMips = mips.count; 
+
+					ushort[] misc = new ushort[4];
+					misc[0] = misc[1] = misc[2] = 0;
+					misc[3] = (ushort)(nMips << 12);
+
+					for (int j = 0; j < 4; j++)
+					{
+						output.Write(BitConverter.GetBytes(misc[j]), 0, 2);
+					}
+
+					Surface src =  bl.Surface;
+					int width = bl.Width;
+					int height = bl.Height;
+					int dataLen = 0;
+					Surface surf = src.Clone();
+
+					for (int j = 0; j <= nMips; j++)
+					{
+						bmpw = (width >> j);
+						bmph = (height >> j);
 
 
-    }
+						if (j > 0) // resize the mipmaps
+						{
+							surf.Dispose();
+
+							surf = new Surface(bmpw, bmph);
+							surf.FitSurface(ResamplingAlgorithm.Bilinear, src);
+						}
+
+						dataLen = GetBmpDataSize(bmpw, bmph, format);
+
+						byte[] data = SaveImageData(surf, format, dataLen);
+
+						output.Write(data, 0, dataLen);
+					}
+
+					long offset = output.Position - entryStart;                 
+					int newCode = (((int)offset << 8) | code);
+
+					output.Seek(entryStart, SeekOrigin.Begin);
+					output.Write(BitConverter.GetBytes(newCode), 0, 4);	
+				}
+
+				output.Seek(4L, SeekOrigin.Begin);
+				output.Write(BitConverter.GetBytes(output.Length), 0, 4);
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show(ex.Message, Resources.ErrorSavingCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private unsafe byte[] SaveImageData(Surface surf, FshFileFormat format, int dataLength)
+		{
+			int width = surf.Width;
+			int height = surf.Height;
+			byte[] data = null;
+
+			if (format == FshFileFormat.TwentyFourBit)
+			{
+				data = new byte[dataLength + 2000];
+
+				fixed (byte* ptr = data)
+				{
+					int dstStride = width * 3;
+					for (int y = 0; y < height; y++)
+					{
+						ColorBgra* src = surf.GetRowAddressUnchecked(y);
+						byte* dst = ptr + (y * dstStride);
+						for (int x = 0; x < width; x++)
+						{
+							dst[0] = src->B;
+							dst[1] = src->G;
+							dst[2] = src->R;
+
+							src++;
+							dst += 3;
+						}
+					}
+				}
+			}
+			else if (format == FshFileFormat.ThirtyTwoBit)
+			{
+				data = new byte[dataLength + 2000];
+
+				fixed (byte* ptr = data)
+				{
+					int dstStride = width * 4;
+					for (int y = 0; y < height; y++)
+					{
+						ColorBgra* src = surf.GetRowAddressUnchecked(y);
+						byte* dst = ptr + (y * dstStride);
+						for (int x = 0; x < width; x++)
+						{
+							dst[0] = src->B;
+							dst[1] = src->G;
+							dst[2] = src->R;
+							dst[3] = src->A;
+
+							src++;
+							dst += 4;
+						}
+					}
+				}
+			}
+			else if (format == FshFileFormat.DXT1)
+			{
+				if (useFshwriteComp)
+				{
+					int flags = 0;
+					flags |= (int)Squish.SquishFlags.kDxt1;
+					flags |= (int)Squish.SquishFlags.kColourIterativeClusterFit;
+					flags |= (int)Squish.SquishFlags.kColourMetricPerceptual;
+					data = Squish.CompressImage(surf, flags);
+				}
+				else
+				{
+					data = DXTComp.CompressFSHToolDXT1((byte*)surf.Scan0.VoidStar, width, height);
+				}
+			}
+			else
+			{
+				if (useFshwriteComp)
+				{
+					int flags = 0;
+					flags |= (int)Squish.SquishFlags.kDxt3;
+					flags |= (int)Squish.SquishFlags.kColourIterativeClusterFit;
+					flags |= (int)Squish.SquishFlags.kColourMetricPerceptual;
+					data = Squish.CompressImage(surf, flags);
+				}
+				else
+				{
+					data = DXTComp.CompressFSHToolDXT3((byte*)surf.Scan0.VoidStar, width, height);
+				}
+			}
+
+			return data;
+		}
+
+
+	}
 }
