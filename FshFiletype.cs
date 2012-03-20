@@ -9,7 +9,6 @@ using System.IO;
 using PaintDotNet;
 using PaintDotNet.Data;
 using System.Windows.Forms;
-using FSHLib;
 using System.Runtime.InteropServices;
 using PaintDotNet.PropertySystem;
 using PaintDotNet.IndirectUI;
