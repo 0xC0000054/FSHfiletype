@@ -136,7 +136,7 @@ namespace FSHfiletype
 					else
 					{
 						dirs.Add(dirName);
-						mipCount.Add(new MipData());
+                        mipCount.Add(new MipData() { layerWidth = item.Width, layerHeight = item.Height });
 					}
 				}
 
