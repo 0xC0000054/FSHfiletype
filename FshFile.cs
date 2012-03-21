@@ -111,7 +111,6 @@ namespace FSHfiletype
 			{
 
 				this.useFshwriteComp = (bool)token.GetProperty(PropertyNames.FshWriteCompression).Value;
-				bool alphaTrans = (bool)token.GetProperty(PropertyNames.AlphaFromTransparency).Value;
 				FshFileFormat format = (FshFileFormat)token.GetProperty(PropertyNames.FileType).Value;
 				string dirText = (string)token.GetProperty(PropertyNames.DirectoryName).Value;
 
