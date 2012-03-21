@@ -61,15 +61,6 @@ namespace FSHfiletype.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Alpha from image transparency.
-        /// </summary>
-        internal static string AlphatransText {
-            get {
-                return ResourceManager.GetString("AlphatransText", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Compressed entries are not supported..
         /// </summary>
         internal static string CompressedEntriesNotSupported {
@@ -165,15 +156,6 @@ namespace FSHfiletype.Properties {
         internal static string FshWriteText {
             get {
                 return ResourceManager.GetString("FshWriteText", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Generate new map.
-        /// </summary>
-        internal static string GenmapText {
-            get {
-                return ResourceManager.GetString("GenmapText", resourceCulture);
             }
         }
         

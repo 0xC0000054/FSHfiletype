@@ -117,17 +117,11 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AlphatransText" xml:space="preserve">
-    <value>Alpha from image transparency</value>
-  </data>
   <data name="DirNameText" xml:space="preserve">
     <value>Directory name</value>
   </data>
   <data name="FshtypeText" xml:space="preserve">
     <value>Fsh Type</value>
-  </data>
-  <data name="GenmapText" xml:space="preserve">
-    <value>Generate new map</value>
   </data>
   <data name="InvalidFshFile" xml:space="preserve">
     <value>The file is truncated and invalid.</value>
