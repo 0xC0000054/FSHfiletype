@@ -31,7 +31,6 @@ namespace FSHfiletype
             props.Add(StaticListChoiceProperty.CreateForEnum<FshFileFormat>(PropertyNames.FileType, FshFileFormat.DXT1, false));
             props.Add(new StringProperty(PropertyNames.DirectoryName, "FiSH", 4));
             props.Add(new BooleanProperty(PropertyNames.FshWriteCompression, false));
-            props.Add(new BooleanProperty(PropertyNames.AlphaFromTransparency, true));
 
             return new PropertyCollection(props);
         }
@@ -41,10 +40,11 @@ namespace FSHfiletype
 
             ControlInfo info = PropertyBasedFileType.CreateDefaultSaveConfigUI(props);
             info.SetPropertyControlValue(PropertyNames.FileType, ControlInfoPropertyNames.DisplayName, Resources.FshtypeText);
-            info.FindControlForPropertyName(PropertyNames.FileType).SetValueDisplayName(FshFileFormat.TwentyFourBit, Resources.FshFileFormat24Bit);
-            info.FindControlForPropertyName(PropertyNames.FileType).SetValueDisplayName(FshFileFormat.ThirtyTwoBit, Resources.FshFileFormat32Bit);
-            info.FindControlForPropertyName(PropertyNames.FileType).SetValueDisplayName(FshFileFormat.DXT1, Resources.FshFileFormatDXT1);
-            info.FindControlForPropertyName(PropertyNames.FileType).SetValueDisplayName(FshFileFormat.DXT3, Resources.FshFileFormatDXT3);
+            PropertyControlInfo fileTypePCI = info.FindControlForPropertyName(PropertyNames.FileType);
+            fileTypePCI.SetValueDisplayName(FshFileFormat.TwentyFourBit, Resources.FshFileFormat24Bit);
+            fileTypePCI.SetValueDisplayName(FshFileFormat.ThirtyTwoBit, Resources.FshFileFormat32Bit);
+            fileTypePCI.SetValueDisplayName(FshFileFormat.DXT1, Resources.FshFileFormatDXT1);
+            fileTypePCI.SetValueDisplayName(FshFileFormat.DXT3, Resources.FshFileFormatDXT3);
             
             info.SetPropertyControlType(PropertyNames.DirectoryName, PropertyControlType.TextBox);
             info.SetPropertyControlValue(PropertyNames.DirectoryName, ControlInfoPropertyNames.DisplayName, Resources.DirNameText);
@@ -52,10 +52,6 @@ namespace FSHfiletype
             info.SetPropertyControlType(PropertyNames.FshWriteCompression, PropertyControlType.CheckBox);
             info.SetPropertyControlValue(PropertyNames.FshWriteCompression, ControlInfoPropertyNames.DisplayName, string.Empty);
             info.SetPropertyControlValue(PropertyNames.FshWriteCompression, ControlInfoPropertyNames.Description, Resources.FshWriteText);
-
-            info.SetPropertyControlType(PropertyNames.AlphaFromTransparency, PropertyControlType.CheckBox);
-            info.SetPropertyControlValue(PropertyNames.AlphaFromTransparency, ControlInfoPropertyNames.DisplayName, string.Empty);
-            info.SetPropertyControlValue(PropertyNames.AlphaFromTransparency, ControlInfoPropertyNames.Description, Resources.AlphatransText);
 
             return info;
         }
