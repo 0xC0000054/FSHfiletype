@@ -348,6 +348,7 @@ namespace FSHfiletype
 						item.DirName = Encoding.ASCII.GetString(dir.name);
 						item.EmbeddedMipCount = numScales;
 						item.MipPadding = packedMbp;
+						item.Misc = entry.misc;
 
 						this.bitmaps.Add(item);
 					}

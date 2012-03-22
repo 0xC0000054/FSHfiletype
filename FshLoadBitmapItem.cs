@@ -12,6 +12,7 @@ namespace FSHfiletype
         private string dirName;
         private int mipCount;
         private bool mipPadding;
+        private ushort[] misc;
 
         public Surface Surface
         {
@@ -58,6 +59,18 @@ namespace FSHfiletype
             set
             {
                 mipPadding = value;
+            }
+        }
+
+        public ushort[] Misc
+        {
+            get
+            {
+                return misc;
+            }
+            set
+            {
+                misc = value;
             }
         }
 
