@@ -41,8 +41,10 @@ namespace FSHfiletype
 							IsBackground = (i == 0)
 						};
 
-						string data = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2}", bmpitem.DirName, 
-							bmpitem.EmbeddedMipCount.ToString(CultureInfo.InvariantCulture), bmpitem.MipPadding.ToString());
+						ushort[] misc = bmpitem.Misc;
+						string miscData = string.Format(CultureInfo.InvariantCulture, "{0}_{1}_{2}_{3}", new object[] { misc[0], misc[1], misc[2], misc[3] });
+						string data = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3}", new object[] { bmpitem.DirName, 
+							bmpitem.EmbeddedMipCount.ToString(CultureInfo.InvariantCulture), bmpitem.MipPadding.ToString(), miscData });
 
 						bl.Metadata.SetUserValue(fshMetadata, data);
 						
@@ -122,6 +124,7 @@ namespace FSHfiletype
 				int count = input.Layers.Count;
 				List<byte[]> dirs = new List<byte[]>(count); 
 				List<MipData> mipCount = new List<MipData>(count);
+				List<ushort[]> miscData = new List<ushort[]>(count);
 				Encoding ascii = Encoding.ASCII;
 				byte[] dirName = ascii.GetBytes(dirText);
 
@@ -137,11 +140,23 @@ namespace FSHfiletype
 						dirs.Add(ascii.GetBytes(data[0]));
 
 						mipCount.Add(new MipData(int.Parse(data[1], CultureInfo.InvariantCulture), bool.Parse(data[2]), item.Size)); 
+
+						string[] miscStr = data[3].Split('_');
+
+						ushort[] misc = new ushort[4] { 
+							ushort.Parse(miscStr[0], CultureInfo.InvariantCulture),
+							ushort.Parse(miscStr[1], CultureInfo.InvariantCulture),
+							ushort.Parse(miscStr[2], CultureInfo.InvariantCulture),
+							ushort.Parse(miscStr[3], CultureInfo.InvariantCulture)
+						};
+
+						miscData.Add(misc);
 					}
 					else
 					{
 						dirs.Add(dirName);
 						mipCount.Add(new MipData() { layerWidth = item.Width, layerHeight = item.Height });
+						miscData.Add(null);
 					}
 				}
 
@@ -165,6 +180,12 @@ namespace FSHfiletype
 						bmpw = (data.layerWidth >> j);
 						bmph = (data.layerHeight >> j);
 
+						if (format == FshFileFormat.DXT1)
+						{
+							bmpw += (4 - bmpw) & 3; // 4x4 blocks
+							bmph += (4 - bmph) & 3;
+						}
+
 						fshlen += GetBmpDataSize(bmpw, bmph, format);               
 					}
 				}
@@ -181,46 +202,61 @@ namespace FSHfiletype
 					output.Write(BitConverter.GetBytes((ushort)bl.Width), 0, 2);
 					output.Write(BitConverter.GetBytes((ushort)bl.Height), 0, 2);
 						
-					MipData mips = mipCount[i];
-					int nMips = mips.count; 
+					MipData mip = mipCount[i];
+					int nMips = mip.count; 
 
-					ushort[] misc = new ushort[4];
-					misc[0] = misc[1] = misc[2] = 0;
-					misc[3] = (ushort)(nMips << 12);
+					ushort[] misc = miscData[i];
+
+					if (misc == null)
+					{
+						misc = new ushort[4] { 0, 0, 0, 0 };
+					}
 
 					for (int j = 0; j < 4; j++)
 					{
 						output.Write(BitConverter.GetBytes(misc[j]), 0, 2);
 					}
 
-					Surface src =  bl.Surface;
 					int width = bl.Width;
 					int height = bl.Height;
 					int dataLen = 0;
-					Surface surf = src.Clone();
+					Surface src = bl.Surface;
+					Surface surf = src;
 
 					for (int j = 0; j <= nMips; j++)
 					{
 						bmpw = (width >> j);
 						bmph = (height >> j);
 
-
-						if (j > 0) // resize the mipmaps
+						if (format == FshFileFormat.DXT1)
 						{
-							surf.Dispose();
+							bmpw += (4 - bmpw) & 3; // 4x4 blocks
+							bmph += (4 - bmph) & 3;
+						}
 
+
+						if (j > 0) 
+						{
 							surf = new Surface(bmpw, bmph);
-							surf.FitSurface(ResamplingAlgorithm.Bilinear, src);
+							surf.FitSurface(ResamplingAlgorithm.SuperSampling, src);
 						}
 
 						dataLen = GetBmpDataSize(bmpw, bmph, format);
 
 						byte[] data = SaveImageData(surf, format, dataLen);
 
+						if (!mip.hasPadding)
+						{
+							while ((dataLen & 15) > 0)
+							{
+								data[dataLen++] = 0; // pad to 15 bytes?
+							}
+						}
+
 						output.Write(data, 0, dataLen);
 					}
 
-					if (mips.count > 0)
+					if (mip.count > 0)
 					{
 						long sectionLength = output.Position - entryStart;
 						int newCode = (((int)sectionLength << 8) | code);
