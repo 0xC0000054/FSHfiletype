@@ -42,7 +42,9 @@ namespace FSHfiletype
 						};
 
 						ushort[] misc = bmpitem.Misc;
-						string miscData = string.Format(CultureInfo.InvariantCulture, "{0}_{1}_{2}_{3}", new object[] { misc[0], misc[1], misc[2], misc[3] });
+						string miscData = string.Format(CultureInfo.InvariantCulture, "{0}_{1}_{2}_{3}", new object[]{ misc[0].ToString(CultureInfo.InvariantCulture),
+							misc[1].ToString(CultureInfo.InvariantCulture), misc[2].ToString(CultureInfo.InvariantCulture), misc[3].ToString(CultureInfo.InvariantCulture) });
+						
 						string data = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3}", new object[] { bmpitem.DirName, 
 							bmpitem.EmbeddedMipCount.ToString(CultureInfo.InvariantCulture), bmpitem.MipPadding.ToString(), miscData });
 
@@ -180,12 +182,6 @@ namespace FSHfiletype
 						bmpw = (data.layerWidth >> j);
 						bmph = (data.layerHeight >> j);
 
-						if (format == FshFileFormat.DXT1)
-						{
-							bmpw += (4 - bmpw) & 3; // 4x4 blocks
-							bmph += (4 - bmph) & 3;
-						}
-
 						fshlen += GetBmpDataSize(bmpw, bmph, format);               
 					}
 				}
@@ -228,13 +224,6 @@ namespace FSHfiletype
 						bmpw = (width >> j);
 						bmph = (height >> j);
 
-						if (format == FshFileFormat.DXT1)
-						{
-							bmpw += (4 - bmpw) & 3; // 4x4 blocks
-							bmph += (4 - bmph) & 3;
-						}
-
-
 						if (j > 0) 
 						{
 							surf = new Surface(bmpw, bmph);
@@ -245,11 +234,11 @@ namespace FSHfiletype
 
 						byte[] data = SaveImageData(surf, format, dataLen);
 
-						if (!mip.hasPadding)
+						if (!mip.hasPadding && format != FshFileFormat.DXT1)
 						{
 							while ((dataLen & 15) > 0)
 							{
-								data[dataLen++] = 0; // pad to 15 bytes?
+								data[dataLen++] = 0; // pad to 16 bytes?
 							}
 						}
 
