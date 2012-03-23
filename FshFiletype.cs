@@ -29,7 +29,7 @@ namespace FSHfiletype
             List<Property> props = new List<Property>();
 
             props.Add(StaticListChoiceProperty.CreateForEnum<FshFileFormat>(PropertyNames.FileType, FshFileFormat.DXT1, false));
-            props.Add(new StringProperty(PropertyNames.DirectoryName, "FiSH", 4));
+            props.Add(new StringProperty(PropertyNames.DirectoryName, "0000", 4));
             props.Add(new BooleanProperty(PropertyNames.FshWriteCompression, false));
 
             return new PropertyCollection(props);
