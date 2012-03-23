@@ -20,7 +20,7 @@ namespace FSHfiletype
     public sealed class FshFileType : PropertyBasedFileType, IFileTypeFactory
     {
         public FshFileType()
-            : base("Fsh", FileTypeFlags.SupportsLoading | FileTypeFlags.SupportsSaving | FileTypeFlags.SupportsLayers, new string[] { ".fsh" })
+            : base("EA Fsh", FileTypeFlags.SupportsLoading | FileTypeFlags.SupportsSaving | FileTypeFlags.SupportsLayers, new string[] { ".fsh" })
         {
         }
 
