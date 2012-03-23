@@ -170,7 +170,7 @@ namespace FSHfiletype
 
 				int fshlen = 16 + (8 * count); // fsh length
 
-				int bmpw, bmph; 
+				int bmpw, bmph, len; 
 				for (int i = 0; i < count; i++)
 				{
 					output.Write(dirs[i], 0, 4);
@@ -182,7 +182,21 @@ namespace FSHfiletype
 						bmpw = (data.layerWidth >> j);
 						bmph = (data.layerHeight >> j);
 
-						fshlen += GetBmpDataSize(bmpw, bmph, format);               
+						if (format == FshFileFormat.DXT1)
+						{
+							bmpw += (4 - bmpw) & 3; // 4x4 blocks
+							bmph += (4 - bmph) & 3;
+						}
+
+						len = GetBmpDataSize(bmpw, bmph, format);
+
+						if (!data.hasPadding && format != FshFileFormat.DXT1)
+						{
+							len += (len & 15); 
+						}
+
+						fshlen += len;
+			  
 					}
 				}
 
@@ -223,6 +237,12 @@ namespace FSHfiletype
 					{
 						bmpw = (width >> j);
 						bmph = (height >> j);
+
+						if (format == FshFileFormat.DXT1) // Maxis files use this
+						{
+							bmpw += (4 - bmpw) & 3; // 4x4 blocks 
+							bmph += (4 - bmph) & 3;
+						}
 
 						if (j > 0) 
 						{
