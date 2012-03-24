@@ -79,6 +79,7 @@ namespace FSHfiletype
 
 		private MemoryStream Decomp(Stream input)
 		{
+            input.Position = 0L;
 			byte[] bytes = QfsComp.Decomp(input);
 
 			return new MemoryStream(bytes);
@@ -93,9 +94,11 @@ namespace FSHfiletype
 			
 			MemoryStream ms = null;
 			byte[] compSig = new byte[2];
+            input.Read(compSig, 0, 2);
 
-			if (compSig[0] == 16 && compSig[1] == 0xfb)
+			if ((compSig[0] & 0xfe)== 16 && compSig[1] == 0xfb)
 			{
+
 				ms = this.Decomp(input);
 			}
 			else
@@ -104,7 +107,7 @@ namespace FSHfiletype
 
 				input.Read(compSig, 0, 2);
 
-				if (compSig[0] == 16 && compSig[1] == 0xfb)
+				if ((compSig[0] & 0xfe) == 16 && compSig[1] == 0xfb)
 				{
 					ms = this.Decomp(input);
 				}
@@ -142,12 +145,14 @@ namespace FSHfiletype
 					dirs[i].offset = ms.ReadInt32();
 				}
 
+
+
 				for (int i = 0; i < nBmps; i++)
 				{
 					ms.Seek((long)dirs[i].offset, SeekOrigin.Begin);
 					int code = (ms.ReadInt32() & 0x7f);
 
-					if (code == 0x7b)
+					if (code == 0x7b || code == 0x6d || code == 0x78 || code == 0x7e)
 					{
 						throw new FileFormatException(Resources.UnsupportedFshFormat);
 					}
@@ -172,17 +177,11 @@ namespace FSHfiletype
 
 					ms.Seek((long)dir.offset, SeekOrigin.Begin);
 					FSHEntryHeader entry = entries[i];
-					entry = new FSHEntryHeader() { misc = new ushort[4] };
-					entry.code = ms.ReadInt32();
-					entry.width = ms.ReadUInt16();
-					entry.height = ms.ReadUInt16();
-					for (int m = 0; m < 4; m++)
-					{
-						entry.misc[m] = ms.ReadUInt16();
-					}
+					entry = new FSHEntryHeader(ms);
+					
 
 					int code = (entry.code & 0x7f);
- 
+					bool entryCompressed = (entry.code & 0x80) > 0;
 					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f));
 					
 					int numScales = (entry.misc[3] >> 12) & 0x0f;
@@ -209,7 +208,7 @@ namespace FSHfiletype
 							numScales = 0;
 						}
 
-						if (numScales > 0)
+						if (numScales > 0 && !entryCompressed)
 						{
 							int bpp = 0;
 							int mbpLen = 0;
@@ -272,24 +271,21 @@ namespace FSHfiletype
 
 
 						ms.Seek(bmppos, SeekOrigin.Begin);
-                        int dataSize = GetBmpDataSize(width, height, code);
+						int dataSize = GetBmpDataSize(width, height, code);
 						byte[] data = null;
 
-                        bool compressed = false;
-						if ((entry.code & 0x80) > 0)
+						if (entryCompressed)
 						{
-                            compressed = true;
-                            int compSize = nextOffset - (int)bmppos;
-                            byte[] comp = new byte[compSize];
-                            ms.ProperRead(comp, 0, compSize);
+							int compSize = nextOffset - (int)bmppos;
+							byte[] comp = new byte[compSize];
+							ms.ProperRead(comp, 0, compSize);
 
-                            data = QfsComp.Decomp(comp);
-                            
+							data = QfsComp.Decomp(comp);
 						}
 						else
 						{
-                            data = new byte[dataSize];
-                            ms.ProperRead(data, 0, dataSize);
+							data = new byte[dataSize];
+							ms.ProperRead(data, 0, dataSize);
 						}
 
 						if (code == 0x60 || code == 0x61) // DXT1 or DXT3
@@ -347,7 +343,9 @@ namespace FSHfiletype
 
 						}
 
-                        item.MetaData = new FshMetadata(dir.name, numScales, packedMbp, entry.misc, compressed);
+
+
+						item.MetaData = new FshMetadata(dir.name, numScales, packedMbp, entry.misc, entryCompressed);
 
 						this.bitmaps.Add(item);
 					}
