@@ -41,14 +41,9 @@ namespace FSHfiletype
 							IsBackground = (i == 0)
 						};
 
-						ushort[] misc = bmpitem.Misc;
-						string miscData = string.Format(CultureInfo.InvariantCulture, "{0}_{1}_{2}_{3}", new object[]{ misc[0].ToString(CultureInfo.InvariantCulture),
-							misc[1].ToString(CultureInfo.InvariantCulture), misc[2].ToString(CultureInfo.InvariantCulture), misc[3].ToString(CultureInfo.InvariantCulture) });
 						
-						string data = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3}", new object[] { bmpitem.DirName, 
-							bmpitem.EmbeddedMipCount.ToString(CultureInfo.InvariantCulture), bmpitem.MipPadding.ToString(), miscData });
 
-						bl.Metadata.SetUserValue(fshMetadata, data);
+						bl.Metadata.SetUserValue(fshMetadata, bmpitem.MetaData.ToString());
 						
 						doc.Layers.Add(bl);
 					}
@@ -56,11 +51,10 @@ namespace FSHfiletype
 					return doc; 
 				}
 			}
-			catch (Exception ex)
+			catch (Exception)
 			{
-				MessageBox.Show(ex.Message, Resources.ErrorLoadingCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
-				return null;
-			}
+                throw;
+			}				
 		}
 
 		private bool useFshwriteComp;
@@ -86,22 +80,6 @@ namespace FSHfiletype
 			return ret;
 		}
 
-		private struct MipData
-		{
-			public int count;
-			public bool hasPadding;
-			public int layerWidth;
-			public int layerHeight;
-
-			public MipData(int count, bool padded, Size size)
-			{
-				this.count = count;
-				this.hasPadding = padded;
-				this.layerWidth = size.Width;
-				this.layerHeight = size.Height;
-			}
-		}
-
 		/// <summary>
 		/// Saves the specified input.
 		/// </summary>
@@ -124,9 +102,7 @@ namespace FSHfiletype
 				}
 
 				int count = input.Layers.Count;
-				List<byte[]> dirs = new List<byte[]>(count); 
-				List<MipData> mipCount = new List<MipData>(count);
-				List<ushort[]> miscData = new List<ushort[]>(count);
+				List<FshMetadata> metaData = new List<FshMetadata>(count);
 				Encoding ascii = Encoding.ASCII;
 				byte[] dirName = ascii.GetBytes(dirText);
 
@@ -137,28 +113,11 @@ namespace FSHfiletype
 					string val = item.Metadata.GetUserValue(fshMetadata);
 					if (!string.IsNullOrEmpty(val))
 					{
-						string[] data = val.Split(',');
-
-						dirs.Add(ascii.GetBytes(data[0]));
-
-						mipCount.Add(new MipData(int.Parse(data[1], CultureInfo.InvariantCulture), bool.Parse(data[2]), item.Size)); 
-
-						string[] miscStr = data[3].Split('_');
-
-						ushort[] misc = new ushort[4] { 
-							ushort.Parse(miscStr[0], CultureInfo.InvariantCulture),
-							ushort.Parse(miscStr[1], CultureInfo.InvariantCulture),
-							ushort.Parse(miscStr[2], CultureInfo.InvariantCulture),
-							ushort.Parse(miscStr[3], CultureInfo.InvariantCulture)
-						};
-
-						miscData.Add(misc);
+                        metaData.Add(new FshMetadata(val, item.Size)); 
 					}
 					else
 					{
-						dirs.Add(dirName);
-						mipCount.Add(new MipData() { layerWidth = item.Width, layerHeight = item.Height });
-						miscData.Add(null);
+                        metaData.Add(new FshMetadata(dirName, item.Size));
 					}
 				}
 
@@ -173,10 +132,11 @@ namespace FSHfiletype
 				int bmpw, bmph, len; 
 				for (int i = 0; i < count; i++)
 				{
-					output.Write(dirs[i], 0, 4);
+                    FshMetadata meta = metaData[i];
+					output.Write(meta.DirName, 0, 4);
 					output.Write(BitConverter.GetBytes(fshlen), 0, 4);
 
-					MipData data =  mipCount[i];
+					MipData data = meta.MipData;
 					for (int j = 0; j <= data.count; j++)
 					{
 						bmpw = (data.layerWidth >> j);
@@ -211,11 +171,13 @@ namespace FSHfiletype
 					output.Write(BitConverter.GetBytes(code), 0, 4);
 					output.Write(BitConverter.GetBytes((ushort)bl.Width), 0, 2);
 					output.Write(BitConverter.GetBytes((ushort)bl.Height), 0, 2);
-						
-					MipData mip = mipCount[i];
+					
+	                FshMetadata meta = metaData[i];
+
+					MipData mip = meta.MipData;
 					int nMips = mip.count; 
 
-					ushort[] misc = miscData[i];
+					ushort[] misc = meta.Misc;
 
 					if (misc == null)
 					{
@@ -233,39 +195,64 @@ namespace FSHfiletype
 					Surface src = bl.Surface;
 					Surface surf = src;
 
-					for (int j = 0; j <= nMips; j++)
-					{
-						bmpw = (width >> j);
-						bmph = (height >> j);
+                    bool compressed = false;
 
-						if (format == FshFileFormat.DXT1) // Maxis files use this
-						{
-							bmpw += (4 - bmpw) & 3; // 4x4 blocks 
-							bmph += (4 - bmph) & 3;
-						}
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        for (int j = 0; j <= nMips; j++)
+                        {
+                            bmpw = (width >> j);
+                            bmph = (height >> j);
 
-						if (j > 0) 
-						{
-							surf = new Surface(bmpw, bmph);
-							surf.FitSurface(ResamplingAlgorithm.SuperSampling, src);
-						}
+                            if (format == FshFileFormat.DXT1) // Maxis files use this
+                            {
+                                bmpw += (4 - bmpw) & 3; // 4x4 blocks 
+                                bmph += (4 - bmph) & 3;
+                            }
 
-						dataLen = GetBmpDataSize(bmpw, bmph, format);
+                            if (j > 0)
+                            {
+                                surf = new Surface(bmpw, bmph);
+                                surf.FitSurface(ResamplingAlgorithm.SuperSampling, src);
+                            }
 
-						byte[] data = SaveImageData(surf, format, dataLen);
+                            dataLen = GetBmpDataSize(bmpw, bmph, format);
 
-						if (!mip.hasPadding && format != FshFileFormat.DXT1)
-						{
-							while ((dataLen & 15) > 0)
-							{
-								data[dataLen++] = 0; // pad to 16 bytes?
-							}
-						}
+                            byte[] data = SaveImageData(surf, format, dataLen);
 
-						output.Write(data, 0, dataLen);
-					}
+                            if (!mip.hasPadding && format != FshFileFormat.DXT1)
+                            {
+                                while ((dataLen & 15) > 0)
+                                {
+                                    data[dataLen++] = 0; // pad to 16 bytes?
+                                }
+                            }
 
-					if (mip.count > 0)
+                            ms.Write(data, 0, dataLen);
+                        }
+
+                        if (meta.EntryCompressed)
+                        {
+                            byte[] comp = QfsComp.Comp(ms.ToArray(), false);
+
+                            if (comp != null)
+                            {
+                                output.Write(comp, 0, comp.Length);
+                                code |= 0x80;
+                                compressed = true;
+                            }
+                            else
+                            {
+                                ms.WriteTo(output);
+                            }
+                        }
+                        else
+                        {
+                            ms.WriteTo(output);
+                        }
+                    }
+
+					if (mip.count > 0 || compressed)
 					{
 						long sectionLength = output.Position - entryStart;
 						int newCode = (((int)sectionLength << 8) | code);
