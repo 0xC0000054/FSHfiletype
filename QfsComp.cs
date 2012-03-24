@@ -189,7 +189,7 @@ namespace FSHfiletype
         /// <param name="input">The input byte array to compress</param>
         /// <returns>The compressed data or null if the compession fails</returns>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1814:PreferJaggedArraysOverMultidimensional", MessageId = "Body"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity")]
-        public static byte[] Comp(byte[] input)
+        public static byte[] Comp(byte[] input, bool incLen)
         {
             if (input == null)
                 throw new ArgumentNullException("input", "input byte array is null.");
@@ -219,14 +219,13 @@ namespace FSHfiletype
                 }
             }
 
-            byte[] outbuf = new byte[(inlen + 4)];
-            Array.Copy(BitConverter.GetBytes(outbuf.Length), 0, outbuf, 0, 4);
-            outbuf[4] = 0x10;
-            outbuf[5] = 0xfb;
-            outbuf[6] = (byte)(inlen >> 16);
-            outbuf[7] = (byte)((inlen >> 8) & 0xff);
-            outbuf[8] = (byte)(inlen & 0xff);
-            int outidx = 9;
+            byte[] outbuf = new byte[inlen + 2048];
+            outbuf[0] = 0x10;
+            outbuf[1] = 0xfb;
+            outbuf[2] = (byte)(inlen >> 16);
+            outbuf[3] = (byte)((inlen >> 8) & 0xff);
+            outbuf[4] = (byte)(inlen & 0xff);
+            int outidx = 5;
             int index = 0;
             lastwrot = 0;
             for (index = 0; index < inlen; index++)
@@ -376,9 +375,22 @@ namespace FSHfiletype
 
                 outbuf[outidx++] = inbuf[lastwrot++];
             }
-            byte[] tempsize = new byte[outidx]; // trim the outbuf array to it's actual length
-            Buffer.BlockCopy(outbuf, 0, tempsize, 0, outidx);
-            outbuf = tempsize;
+
+            if (incLen)
+            {
+                byte[] temp = new byte[outidx + 4]; // trim the outbuf array to it's actual length
+                
+                Array.Copy(BitConverter.GetBytes(outidx), temp, 4); // write the compressed length before the actual data
+                Buffer.BlockCopy(outbuf, 0, temp, 4, outidx); 
+                outbuf = temp;    
+            }
+            else
+            {
+                byte[] temp = new byte[outidx]; // trim the outbuf array to it's actual length
+                Buffer.BlockCopy(outbuf, 0, temp, 0, outidx);
+                outbuf = temp;    
+            }
+           
 
             return outbuf;
         }
