@@ -23,6 +23,7 @@ namespace FSHfiletype
             this.name = name;
             this.offset = 0;
         }
+
     }
 
     internal struct FSHEntryHeader
@@ -31,6 +32,18 @@ namespace FSHfiletype
         public ushort width;
         public ushort height;
         public ushort[] misc;
+
+        internal FSHEntryHeader(System.IO.Stream stream)
+        {
+            this.code = stream.ReadInt32();
+            this.width = stream.ReadUInt16();
+            this.height = stream.ReadUInt16();
+            this.misc = new ushort[4];
+            for (int m = 0; m < 4; m++)
+            {
+                this.misc[m] = stream.ReadUInt16();
+            }
+        }
     }
     
 }
