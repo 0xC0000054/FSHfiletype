@@ -9,10 +9,8 @@ namespace FSHfiletype
     internal class FshLoadBitmapItem : IDisposable
     {
         private Surface surface;
-        private string dirName;
-        private int mipCount;
-        private bool mipPadding;
-        private ushort[] misc;
+        private FshMetadata metaData;
+
 
         public Surface Surface
         {
@@ -26,54 +24,17 @@ namespace FSHfiletype
             }
         }
 
-        public string DirName
+        public FshMetadata MetaData
         {
             get
             {
-                return dirName;
+                return metaData;
             }
             set
             {
-                dirName = value;
+                metaData = value;
             }
         }
-
-        public int EmbeddedMipCount
-        {
-            get
-            {
-                return mipCount;
-            }
-            set
-            {
-                mipCount = value;
-            }
-        }
-
-        public bool MipPadding
-        {
-            get
-            {
-                return mipPadding;
-            }
-            set
-            {
-                mipPadding = value;
-            }
-        }
-
-        public ushort[] Misc
-        {
-            get
-            {
-                return misc;
-            }
-            set
-            {
-                misc = value;
-            }
-        }
-
 
         public FshLoadBitmapItem()
         {
