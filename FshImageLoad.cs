@@ -50,7 +50,32 @@ namespace FSHfiletype
 			}
 		}
 
+		private static int GetBmpDataSize(int width, int height, int code)
+		{
+			int size = 0;
+			switch (code)
+			{
+				case 0x6d:
+				case 0x78:
+				case 0x7e:
+					size = (width * height) * 2;
+					break;
+				case 0x7d:
+					size = (width * height) * 4;
+					break;
+				case 0x7f:
+					size = (width * height) * 3;
+					break;
+				case 0x60:
+					size = (width * height) / 2;
+					break;
+				case 0x61:
+					size = (width * height);
+					break;
+			}
 
+			return size;
+		}
 
 		private MemoryStream Decomp(Stream input)
 		{
@@ -122,7 +147,7 @@ namespace FSHfiletype
 					ms.Seek((long)dirs[i].offset, SeekOrigin.Begin);
 					int code = (ms.ReadInt32() & 0x7f);
 
-					if (code == 0x7b || code == 0x7e || code == 0x78 || code == 0x6d)
+					if (code == 0x7b)
 					{
 						throw new FileFormatException(Resources.UnsupportedFshFormat);
 					}
@@ -132,12 +157,17 @@ namespace FSHfiletype
 
 				this.entries = new FSHEntryHeader[nBmps];
 				this.bitmaps = new List<FshLoadBitmapItem>(nBmps);
+
+				int nextOffset = size;
 				for (int i = 0; i < nBmps; i++)
 				{ 
 					FSHDirEntry dir = dirs[i];
 					for (int j = 0; j < nBmps; j++)
 					{
-						if ((dirs[j].offset < size) && (dirs[j].offset > dir.offset)) size = dirs[j].offset;
+						if ((dirs[j].offset < nextOffset) && (dirs[j].offset > nextOffset))
+						{
+							nextOffset = dirs[j].offset;
+						}
 					}
 
 					ms.Seek((long)dir.offset, SeekOrigin.Begin);
@@ -152,18 +182,8 @@ namespace FSHfiletype
 					}
 
 					int code = (entry.code & 0x7f);
-
-					if ((entry.code & 0x80) > 0)
-					{
-						throw new FileFormatException(Resources.CompressedEntriesNotSupported);
-					}
-
-					if (code == 0x7b || code == 0x6d || code == 0x78 || code == 0x7e)
-					{
-						throw new FileFormatException(Resources.UnsupportedFshFormat);
-					}
  
-					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f) || (code == 0x7b));
+					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f));
 					
 					int numScales = (entry.misc[3] >> 12) & 0x0f;
 					bool packedMbp = false;
@@ -183,8 +203,6 @@ namespace FSHfiletype
 							}
 							nAttach++;
 						}
-
-
 
 						if (((entry.width % 1) << numScales) > 0 || ((entry.height % 1) << numScales) > 0)
 						{
@@ -251,46 +269,36 @@ namespace FSHfiletype
 						int width = (int)entry.width;
 						int height = (int)entry.height;
 						long bmppos = (long)(dir.offset + 16);
-						if (code == 0x60) // DXT1
+
+
+						ms.Seek(bmppos, SeekOrigin.Begin);
+                        int dataSize = GetBmpDataSize(width, height, code);
+						byte[] data = null;
+
+                        bool compressed = false;
+						if ((entry.code & 0x80) > 0)
 						{
-							ms.Seek(bmppos, SeekOrigin.Begin);
+                            compressed = true;
+                            int compSize = nextOffset - (int)bmppos;
+                            byte[] comp = new byte[compSize];
+                            ms.ProperRead(comp, 0, compSize);
 
-							int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
-							int blockSize = 8;
-
-							int ds = (blockCount * blockSize);
-							byte[] buf = new byte[ds];
-
-							ms.ProperRead(buf, 0, buf.Length);
-
-							byte[] data = DXTComp.UnpackDXTImage(buf, width, height, true);
-							item = BuildDxtBitmap(data, width, height);
+                            data = QfsComp.Decomp(comp);
+                            
 						}
-						else if (code == 0x61) // DXT3
+						else
 						{
-							ms.Seek(bmppos, SeekOrigin.Begin);
+                            data = new byte[dataSize];
+                            ms.ProperRead(data, 0, dataSize);
+						}
 
-							int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
-							int blockSize = 16;
-
-							int ds = (blockCount * blockSize);
-
-
-
-							byte[] buf = new byte[ds];
-							ms.ProperRead(buf, 0, buf.Length);
-
-							byte[] data = DXTComp.UnpackDXTImage(buf, width, height, false);
-							item = BuildDxtBitmap(data, width, height);
+						if (code == 0x60 || code == 0x61) // DXT1 or DXT3
+						{
+							byte[] rgba = DXTComp.UnpackDXTImage(data, width, height, (code == 0x60));
+							item = BuildDxtBitmap(rgba, width, height);
 						}
 						else if (code == 0x7d) // 32-bit RGBA (BGRA pixel order)
 						{
-							ms.Seek(bmppos, SeekOrigin.Begin);
-
-							byte[] data = new byte[(width * height) * 4];
-
-							ms.ProperRead(data, 0, data.Length);
-
 							item = new FshLoadBitmapItem(width, height);
 
 							fixed (byte* ptr = data)
@@ -313,12 +321,6 @@ namespace FSHfiletype
 						}
 						else if (code == 0x7f) // 24-bit RGB (BGR pixel order)
 						{
-							ms.Seek(bmppos, SeekOrigin.Begin);
-
-							byte[] data = new byte[(width * height) * 3];
-
-							ms.ProperRead(data, 0, data.Length);
-
 							item = new FshLoadBitmapItem(width, height);
 
 							fixed (byte* ptr = data)
@@ -345,10 +347,7 @@ namespace FSHfiletype
 
 						}
 
-						item.DirName = Encoding.ASCII.GetString(dir.name);
-						item.EmbeddedMipCount = numScales;
-						item.MipPadding = packedMbp;
-						item.Misc = entry.misc;
+                        item.MetaData = new FshMetadata(dir.name, numScales, packedMbp, entry.misc, compressed);
 
 						this.bitmaps.Add(item);
 					}
