@@ -79,7 +79,7 @@ namespace FSHfiletype
 
 		private MemoryStream Decomp(Stream input)
 		{
-            input.Position = 0L;
+			input.Position = 0L;
 			byte[] bytes = QfsComp.Decomp(input);
 
 			return new MemoryStream(bytes);
@@ -94,7 +94,7 @@ namespace FSHfiletype
 			
 			MemoryStream ms = null;
 			byte[] compSig = new byte[2];
-            input.Read(compSig, 0, 2);
+			input.Read(compSig, 0, 2);
 
 			if ((compSig[0] & 0xfe)== 16 && compSig[1] == 0xfb)
 			{
@@ -152,7 +152,7 @@ namespace FSHfiletype
 					ms.Seek((long)dirs[i].offset, SeekOrigin.Begin);
 					int code = (ms.ReadInt32() & 0x7f);
 
-					if (code == 0x7b || code == 0x6d || code == 0x78 || code == 0x7e)
+					if (code == 0x7b)
 					{
 						throw new FileFormatException(Resources.UnsupportedFshFormat);
 					}
@@ -182,7 +182,7 @@ namespace FSHfiletype
 
 					int code = (entry.code & 0x7f);
 					bool entryCompressed = (entry.code & 0x80) > 0;
-					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f));
+					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f) || (code == 0x7e) || (code == 0x78) || (code == 0x6d));
 					
 					int numScales = (entry.misc[3] >> 12) & 0x0f;
 					bool packedMbp = false;
@@ -229,6 +229,9 @@ namespace FSHfiletype
 								case 0x60:
 									bpp = 1;
 									break;
+								default:
+									bpp = 4;
+									break;
 							}
 							for (int n = 0; n <= numScales; n++)
 							{
@@ -265,6 +268,7 @@ namespace FSHfiletype
 
 
 						FshLoadBitmapItem item = null;
+						Surface surf = null;
 						int width = (int)entry.width;
 						int height = (int)entry.height;
 						long bmppos = (long)(dir.offset + 16);
@@ -288,6 +292,13 @@ namespace FSHfiletype
 							ms.ProperRead(data, 0, dataSize);
 						}
 
+						if (code != 0x60 && code != 0x61)
+						{
+							item = new FshLoadBitmapItem(width, height);
+							surf = item.Surface;
+						}
+
+
 						if (code == 0x60 || code == 0x61) // DXT1 or DXT3
 						{
 							byte[] rgba = DXTComp.UnpackDXTImage(data, width, height, (code == 0x60));
@@ -295,11 +306,8 @@ namespace FSHfiletype
 						}
 						else if (code == 0x7d) // 32-bit RGBA (BGRA pixel order)
 						{
-							item = new FshLoadBitmapItem(width, height);
-
 							fixed (byte* ptr = data)
 							{
-								Surface surf = item.Surface;
 								for (int y = 0; y < height; y++)
 								{
 									uint* src = (uint*)ptr + (y * width);
@@ -316,14 +324,11 @@ namespace FSHfiletype
 
 						}
 						else if (code == 0x7f) // 24-bit RGB (BGR pixel order)
-						{
-							item = new FshLoadBitmapItem(width, height);
+						{								
+							new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
 
 							fixed (byte* ptr = data)
 							{
-								Surface surf = item.Surface;
-								new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
-
 								int stride = width * 3;
 								for (int y = 0; y < height; y++)
 								{
@@ -342,8 +347,86 @@ namespace FSHfiletype
 							}
 
 						}
+						else if (code == 0x7e) // 16-bit (1:5:5:5)
+						{
+							
+							fixed (byte* ptr = data)
+							{
+								ushort* sPtr = (ushort*)ptr;
+								for (int y = 0; y < height; y++)
+								{
+									ushort* src = sPtr + (y * width);
+									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+
+									for (int x = 0; x < width; x++)
+									{
+										p->B = (byte)((src[0] & 0x1f) << 3);
+										p->G = (byte)(((src[0] >> 5) & 0x3f) << 3);
+										p->R = (byte)(((src[0] >> 10) & 0x1f) << 3);
+										if ((src[0] & 0x8000) > 0)
+										{
+											p->A = 255;
+										}
 
 
+										p++;
+										src++;
+									}
+								}
+							}
+
+						}
+						else if (code == 0x78) // 16-bit (0:5:6:5)
+						{
+							new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
+
+							fixed (byte* ptr = data)
+							{
+								ushort* sPtr = (ushort*)ptr;
+								for (int y = 0; y < height; y++)
+								{
+									ushort* src = sPtr + (y * width);
+									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+
+									for (int x = 0; x < width; x++)
+									{
+										p->B = (byte)((src[0] & 0x1f) << 3);
+										p->G = (byte)(((src[0] >> 5) & 0x3f) << 2);
+										p->R = (byte)(((src[0] >> 11) & 0x1f) << 3);
+
+										p++;
+										src++;
+									}
+								}
+							}
+
+						  
+						}
+						else if (code == 0x6d) // 16-bit (4:4:4:4)
+						{
+							fixed (byte* ptr = data)
+							{							
+								int stride = width * 2;
+								for (int y = 0; y < height; y++)
+								{
+									byte* src = ptr + (y * stride);
+									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+
+									for (int x = 0; x < width; x++)
+									{
+										p->B = (byte)((src[0] & 15) * 0x11);
+										p->G = (byte)((src[0] >> 4) * 0x11);
+										p->R = (byte)((src[1] & 15) * 0x11);
+										p->A = (byte)((src[1] >> 4) * 0x11);
+
+										src += 2;
+										p++;
+									}
+								}
+							}
+
+						   
+						}
 
 						item.MetaData = new FshMetadata(dir.name, numScales, packedMbp, entry.misc, entryCompressed);
 

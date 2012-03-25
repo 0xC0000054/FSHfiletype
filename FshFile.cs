@@ -76,6 +76,11 @@ namespace FSHfiletype
 				case FshFileFormat.DXT3:
 					ret = (width * height); 
 					break;
+                case FshFileFormat.SixteenBit:
+                case FshFileFormat.SixteenBitAlpha:
+                case FshFileFormat.SixteenBit4x4:
+                    ret = (width * height * 2);
+                    break;
 			}
 			return ret;
 		}
@@ -165,7 +170,34 @@ namespace FSHfiletype
 					BitmapLayer bl = (BitmapLayer)input.Layers[i];
 						
 					// write the entry header
-					int code = (int)format;
+					int code = 0;
+
+                    switch (format)
+                    {
+                        case FshFileFormat.TwentyFourBit:
+                            code = 0x7f;
+                            break;
+                        case FshFileFormat.ThirtyTwoBit:
+                            code = 0x7d;
+                            break;
+                        case FshFileFormat.SixteenBit:
+                            code = 0x78;
+                            break;
+                        case FshFileFormat.SixteenBitAlpha:
+                            code = 0x7e;
+                            break;
+                        case FshFileFormat.SixteenBit4x4:
+                            code = 0x6d;
+                            break;
+                        case FshFileFormat.DXT1:
+                            code = 0x60;
+                            break;
+                        case FshFileFormat.DXT3:
+                            code = 0x61;
+                            break;
+                    }
+
+
 					long entryStart = output.Position;
 
 					output.Write(BitConverter.GetBytes(code), 0, 4);
@@ -277,10 +309,13 @@ namespace FSHfiletype
 			int height = surf.Height;
 			byte[] data = null;
 
+            if (format != FshFileFormat.DXT1 && format != FshFileFormat.DXT3)
+            {
+                data = new byte[dataLength + 2000];
+            }
+
 			if (format == FshFileFormat.TwentyFourBit)
 			{
-				data = new byte[dataLength + 2000];
-
 				fixed (byte* ptr = data)
 				{
 					int dstStride = width * 3;
@@ -302,8 +337,6 @@ namespace FSHfiletype
 			}
 			else if (format == FshFileFormat.ThirtyTwoBit)
 			{
-				data = new byte[dataLength + 2000];
-
 				fixed (byte* ptr = data)
 				{
 					int dstStride = width * 4;
@@ -339,7 +372,7 @@ namespace FSHfiletype
 					data = DXTComp.CompressFSHToolDXT1((byte*)surf.Scan0.VoidStar, width, height);
 				}
 			}
-			else
+			else if (format == FshFileFormat.DXT3)
 			{
 				if (useFshwriteComp)
 				{
@@ -354,6 +387,65 @@ namespace FSHfiletype
 					data = DXTComp.CompressFSHToolDXT3((byte*)surf.Scan0.VoidStar, width, height);
 				}
 			}
+            else if (format == FshFileFormat.SixteenBit)
+            {
+                fixed (byte* ptr = data)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        ColorBgra* src = surf.GetRowAddressUnchecked(y);
+                        ushort* dst = (ushort*)ptr + (y * width);
+                        for (int x = 0; x < width; x++)
+                        {
+                            dst[0] = (ushort)((src->B >> 3) + ((src->G >> 2) << 5) + ((src->R >> 3) << 11));
+
+                            src++;
+                            dst++;
+                        }
+                    }
+                }
+            }
+            else if (format == FshFileFormat.SixteenBitAlpha)
+            {
+                fixed (byte* ptr = data)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        ColorBgra* src = surf.GetRowAddressUnchecked(y);
+                        ushort* dst = (ushort*)ptr + (y * width);
+                        for (int x = 0; x < width; x++)
+                        {
+                            dst[0] = (ushort)((src->B >> 3) + ((src->G >> 3) << 5) + ((src->R >> 3) << 10));
+
+                            if (src->A >= 128)
+                            {
+                                dst[0] |= (ushort)0x8000; 
+                            }
+
+                            src++;
+                            dst++;
+                        }
+                    }
+                }
+            }
+            else if (format == FshFileFormat.SixteenBit4x4)
+            {
+                fixed (byte* ptr = data)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        ColorBgra* src = surf.GetRowAddressUnchecked(y);
+                        ushort* dst = (ushort*)ptr + (y * width);
+                        for (int x = 0; x < width; x++)
+                        {
+                            dst[0] = (ushort)((src->B >> 4) + ((src->G >> 4) << 4) + ((src->R >> 4) << 8) + ((src->A >> 4) << 12));
+
+                            src++;
+                            dst++;
+                        }
+                    }
+                }
+            }
 
 			return data;
 		}
