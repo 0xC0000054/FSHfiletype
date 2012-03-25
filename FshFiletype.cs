@@ -43,6 +43,9 @@ namespace FSHfiletype
             PropertyControlInfo fileTypePCI = info.FindControlForPropertyName(PropertyNames.FileType);
             fileTypePCI.SetValueDisplayName(FshFileFormat.TwentyFourBit, Resources.FshFileFormat24Bit);
             fileTypePCI.SetValueDisplayName(FshFileFormat.ThirtyTwoBit, Resources.FshFileFormat32Bit);
+            fileTypePCI.SetValueDisplayName(FshFileFormat.SixteenBit, Resources.FshFileFormat16Bit);
+            fileTypePCI.SetValueDisplayName(FshFileFormat.SixteenBitAlpha, Resources.FshFileFormat16BitAlpha);
+            fileTypePCI.SetValueDisplayName(FshFileFormat.SixteenBit4x4, Resources.FshFileFormat16Bit4x4);
             fileTypePCI.SetValueDisplayName(FshFileFormat.DXT1, Resources.FshFileFormatDXT1);
             fileTypePCI.SetValueDisplayName(FshFileFormat.DXT3, Resources.FshFileFormatDXT3);
             
