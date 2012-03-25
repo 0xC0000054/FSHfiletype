@@ -130,13 +130,13 @@
     <value>An invalid header was read.</value>
   </data>
   <data name="UnsupportedFshFormat" xml:space="preserve">
-    <value>Only 24-bit , 32-bit RGBA, DXT1 and DXT3 images are supported.</value>
+    <value>8-bit Indexed images are not supported.</value>
   </data>
   <data name="FshFileFormat24Bit" xml:space="preserve">
-    <value>24 Bit RGB</value>
+    <value>24 Bit RGB (0:8:8:8)</value>
   </data>
   <data name="FshFileFormat32Bit" xml:space="preserve">
-    <value>32 Bit RGBA</value>
+    <value>32 Bit ARGB (8:8:8:8)</value>
   </data>
   <data name="FshFileFormatDXT1" xml:space="preserve">
     <value>DXT1 Compressed, no Alpha</value>
@@ -161,5 +161,14 @@
   </data>
   <data name="UnsupportedCompressionFormat" xml:space="preserve">
     <value>Unsupported compression format.</value>
+  </data>
+  <data name="FshFileFormat16Bit" xml:space="preserve">
+    <value>16 Bit RGB (0:5:5:5)</value>
+  </data>
+  <data name="FshFileFormat16Bit4x4" xml:space="preserve">
+    <value>16 Bit ARGB (4:4:4:4)</value>
+  </data>
+  <data name="FshFileFormat16BitAlpha" xml:space="preserve">
+    <value>16 Bit ARGB (1:5:5:5)</value>
   </data>
 </root>

@@ -97,7 +97,34 @@ namespace FSHfiletype.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to 24 Bit RGB.
+        ///   Looks up a localized string similar to 16 Bit RGB (0:5:5:5).
+        /// </summary>
+        internal static string FshFileFormat16Bit {
+            get {
+                return ResourceManager.GetString("FshFileFormat16Bit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 16 Bit ARGB (4:4:4:4).
+        /// </summary>
+        internal static string FshFileFormat16Bit4x4 {
+            get {
+                return ResourceManager.GetString("FshFileFormat16Bit4x4", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 16 Bit ARGB (1:5:5:5).
+        /// </summary>
+        internal static string FshFileFormat16BitAlpha {
+            get {
+                return ResourceManager.GetString("FshFileFormat16BitAlpha", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 24 Bit RGB (0:8:8:8).
         /// </summary>
         internal static string FshFileFormat24Bit {
             get {
@@ -106,7 +133,7 @@ namespace FSHfiletype.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to 32 Bit RGBA.
+        ///   Looks up a localized string similar to 32 Bit ARGB (8:8:8:8).
         /// </summary>
         internal static string FshFileFormat32Bit {
             get {
@@ -187,7 +214,7 @@ namespace FSHfiletype.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Only 24-bit , 32-bit RGBA, DXT1 and DXT3 images are supported..
+        ///   Looks up a localized string similar to 8-bit Indexed images are not supported..
         /// </summary>
         internal static string UnsupportedFshFormat {
             get {
