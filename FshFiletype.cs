@@ -32,7 +32,14 @@ namespace FSHfiletype
             props.Add(new StringProperty(PropertyNames.DirectoryName, "0000", 4));
             props.Add(new BooleanProperty(PropertyNames.FshWriteCompression, false));
 
-            return new PropertyCollection(props);
+            List<PropertyCollectionRule> rules = new List<PropertyCollectionRule>();
+            
+            Pair<object, object>[] values = new Pair<object, object>[]{ Pair.Create<object, object>(PropertyNames.FileType, FshFileFormat.DXT1), 
+                Pair.Create<object, object>(PropertyNames.FileType, FshFileFormat.DXT3)};
+            
+            rules.Add(new ReadOnlyBoundToNameValuesRule(PropertyNames.FshWriteCompression, true, values));
+
+            return new PropertyCollection(props, rules);
         }
 
         public override PaintDotNet.IndirectUI.ControlInfo OnCreateSaveConfigUI(PropertyCollection props)
