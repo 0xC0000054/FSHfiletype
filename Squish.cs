@@ -11,22 +11,17 @@ namespace FSHfiletype
 {
     static class Squish
     {
-        private sealed class Squish_32
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        private static class Squish_32
         {
-            [DllImport(@"Native.x86\PaintDotNet.Native.x86.dll")]
-            public static extern unsafe void SquishCompressImage(byte* rgba, int width, int height, byte* blocks, int flags, [MarshalAs(UnmanagedType.FunctionPtr)]  ProgressFn pf);
-            [DllImport(@"Native.x86\PaintDotNet.Native.x86.dll")]
-            public static extern void SquishInitialize();
+            [DllImport(@"squish_Win32.dll")]
+            public static extern unsafe void CompressImage(byte* rgba, int width, int height, byte* blocks, int flags);
         }
-        private delegate void ProgressFn(int workDone, int workTotal);
-
-        private sealed class Squish_64
+        [System.Security.SuppressUnmanagedCodeSecurity]
+        private static class Squish_64
         {
-            //"PaintDotNet.SystemLayer.Native.x64.dll" // Paint.NET 4 
-            [DllImport(@"Native.x64\PaintDotNet.Native.x64.dll")]
-            public static extern unsafe void SquishCompressImage(byte* rgba, int width, int height, byte* blocks, int flags, [MarshalAs(UnmanagedType.FunctionPtr)]  ProgressFn pf);
-            [DllImport(@"Native.x64\PaintDotNet.Native.x64.dll")]
-            public static extern void SquishInitialize();
+            [DllImport(@"squish_x64.dll")]
+            public static extern unsafe void CompressImage(byte* rgba, int width, int height, byte* blocks, int flags);
         }
 
         internal enum SquishFlags
@@ -102,17 +97,6 @@ namespace FSHfiletype
         {
             return (IntPtr.Size == 8);
         }
-        internal static void InitilizeSquish()
-        {
-            if (Is64bit())
-            {
-                Squish_64.SquishInitialize();
-            }
-            else
-            {
-                Squish_32.SquishInitialize();
-            }
-        }
        
         private static unsafe void CompressImageWrapper(byte[] rgba, int width, int height, byte[] blocks, int flags)
         {
@@ -122,11 +106,11 @@ namespace FSHfiletype
                 {
                     if (Is64bit())
                     {
-                        Squish_64.SquishCompressImage(RGBA, width, height, Blocks, flags, null);
+                        Squish_64.CompressImage(RGBA, width, height, Blocks, flags);
                     }
                     else
                     {
-                        Squish_32.SquishCompressImage(RGBA, width, height, Blocks, flags, null);
+                        Squish_32.CompressImage(RGBA, width, height, Blocks, flags);
                     }
                 }
             }
