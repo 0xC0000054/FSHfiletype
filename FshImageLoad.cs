@@ -189,18 +189,21 @@ namespace FSHfiletype
 
 					if (isbmp)
 					{
-						FSHEntryHeader aux = entry;
+						FSHEntryHeader auxHeader = entry;
 						int nAttach = 0;
-						int auxofs = dir.offset;
-						while ((aux.code >> 8) > 0)
+						int auxOffset = dir.offset;
+						while ((auxHeader.code >> 8) > 0)
 						{
-							auxofs += (aux.code >> 8);
+							auxOffset += (auxHeader.code >> 8);
 
-							if ((auxofs + 4) >= size)
+							if ((auxOffset + 4) >= size)
 							{
 								break;
 							}
 							nAttach++;
+
+                            ms.Seek((long)auxOffset, SeekOrigin.Begin);
+                            auxHeader.code = ms.ReadInt32();
 						}
 
 						if (((entry.width % 1) << numScales) > 0 || ((entry.height % 1) << numScales) > 0)
@@ -428,7 +431,97 @@ namespace FSHfiletype
 						   
 						}
 
-						item.MetaData = new FshMetadata(dir.name, numScales, packedMbp, entry.misc, entryCompressed);
+                        List<FSHAttachment> attach = null;
+
+                        if (nAttach > 0)
+                        {
+                            attach = new List<FSHAttachment>(nAttach);
+                            auxOffset = dir.offset;
+                            auxHeader = entry;
+                            for (int j = 0; j < nAttach; j++)
+                            {
+                                auxOffset += (auxHeader.code >> 8);
+
+                                if ((auxOffset + 4) >= size)
+                                {
+                                    break;
+                                }
+                                ms.Seek((long)auxOffset, SeekOrigin.Begin);
+
+                                auxHeader = new FSHEntryHeader() 
+                                {
+                                    code = ms.ReadInt32(),
+                                    misc = new ushort[4]
+                                };
+                                int attachCode = (auxHeader.code & 0xff);
+
+                                if (attachCode == 0x6f || attachCode == 0x69 || attachCode == 0x7c)
+                                {
+                                    try
+                                    {
+                                        auxHeader.width = ms.ReadUInt16();
+                                        auxHeader.height = ms.ReadUInt16();
+                                        if (attachCode == 0x69 || attachCode == 0x7c)
+                                        {
+                                            for (int m = 0; m < 4; m++)
+                                            {
+                                                auxHeader.misc[m] = ms.ReadUInt16();
+                                            } 
+                                        }
+                                    }
+                                    catch (EndOfStreamException)
+                                    {
+                                        continue;
+                                    }
+                                }
+
+                                byte[] attachBytes = null;
+                                int len = 0;
+                                bool binaryData = false;
+                                switch (attachCode)
+                                {
+                                    case 0x6f: // TXT
+                                        attachBytes = new byte[auxHeader.width];
+                                        ms.ProperRead(attachBytes, 0, attachBytes.Length);
+                                        break;
+                                    case 0x69: // ETXT full header
+                                        attachBytes = new byte[auxHeader.width];
+                                        ms.ProperRead(attachBytes, 0, attachBytes.Length);
+                                        break;
+                                    case 0x70: // ETXT 16 bytes
+                                        attachBytes = new byte[12];
+                                        ms.ProperRead(attachBytes, 0, attachBytes.Length);
+                                        break;
+                                    default: // Binary data
+                                        len = (auxHeader.code >> 8);
+                                        if (len == 0)
+                                        {
+                                            len = nextOffset - auxOffset;
+                                        }
+                                        if (len > 16384)
+                                        {
+                                            // attachment data too large skip it
+                                            continue; 
+                                        }
+                                        ms.Seek(auxOffset, SeekOrigin.Begin);
+                                        attachBytes = new byte[len];
+                                        ms.ProperRead(attachBytes, 0, len);
+                                        binaryData = true;
+
+                                        break;
+                                }
+
+#if DEBUG
+                                System.Diagnostics.Debug.Assert(data != null);
+#endif
+
+                                attach.Add(new FSHAttachment(auxHeader, attachBytes, binaryData));
+                            }
+
+                        }
+
+
+						item.MetaData = new FshMetadata(dir.name, numScales, packedMbp, entry.misc, entryCompressed, attach);
 
 						this.bitmaps.Add(item);
 					}

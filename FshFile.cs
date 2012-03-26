@@ -134,7 +134,7 @@ namespace FSHfiletype
 
 				int fshlen = 16 + (8 * count); // fsh length
 
-				int bmpw, bmph, len; 
+				int bmpw, bmph, len, attachCode; 
 				for (int i = 0; i < count; i++)
 				{
                     FshMetadata meta = metaData[i];
@@ -142,6 +142,7 @@ namespace FSHfiletype
 					output.Write(BitConverter.GetBytes(fshlen), 0, 4);
 
 					MipData data = meta.MipData;
+                    List<FSHAttachment> attach = meta.Attachments;
 					for (int j = 0; j <= data.count; j++)
 					{
 						bmpw = (data.layerWidth >> j);
@@ -161,6 +162,37 @@ namespace FSHfiletype
 						}
 
 						fshlen += len;
+
+                        if (attach != null)
+                        {
+                            int attachLen = 0;
+                            int dataLen;
+                            foreach (FSHAttachment item in attach)
+                            {
+                                attachCode = item.header.code & 0xff;
+                                dataLen = item.data.Length;
+
+                                if (attachCode == 0 && dataLen > 0)
+                                {
+                                    attachLen += dataLen;
+                                }
+                                else
+                                {
+                                    switch (attachCode)
+                                    {
+                                        case 0x6f: // TXT
+                                            attachLen += (8 + dataLen);
+                                            break;
+                                        case 0x69: // ETXT full header
+                                            attachLen += (16 + dataLen);
+                                            break;
+                                        case 0x70: // ETXT 16 bytes
+                                            attachLen += 16;
+                                            break;
+                                    }
+                                }
+                            }
+                        }
 			  
 					}
 				}
@@ -282,6 +314,7 @@ namespace FSHfiletype
                         {
                             ms.WriteTo(output);
                         }
+
                     }
 
 					if (mip.count > 0 || compressed)
@@ -292,6 +325,47 @@ namespace FSHfiletype
 						output.Seek(entryStart, SeekOrigin.Begin);
 						output.Write(BitConverter.GetBytes(newCode), 0, 4);	 
 					}
+
+                    List<FSHAttachment> attach = meta.Attachments;
+                    if (attach != null)
+                    {
+                        int attachLen = 0;
+                        foreach (FSHAttachment item in attach)
+                        {
+                            attachCode = item.header.code & 0xff;
+                            attachLen = item.data.Length;
+
+                            if (attachCode == 0 && attachLen > 0)
+                            {
+                                output.Write(item.data, 0, attachLen);
+                            }
+                            else
+                            {
+                                output.Write(BitConverter.GetBytes(item.header.code), 0, 4);
+
+                                if (attachCode != 0x70)
+                                {
+                                    output.Write(BitConverter.GetBytes(item.header.width), 0, 2);
+                                    output.Write(BitConverter.GetBytes(item.header.height), 0, 2);
+                                }
+
+                                switch (attachCode)
+                                {
+                                    case 0x6f: // TXT
+                                    case 0x70: // ETXT 16 bytes
+                                        output.Write(item.data, 0, attachLen);
+                                        break;
+                                    case 0x69: // ETXT full header
+                                        for (int m = 0; m < 4; m++)
+                                        {
+                                            output.Write(BitConverter.GetBytes(item.header.misc[m]), 0, 2);
+                                        }
+                                        output.Write(item.data, 0, attachLen);
+                                        break;
+                                }
+                            }
+                        }
+                    }
 				}
 
 				output.Seek(4L, SeekOrigin.Begin);
