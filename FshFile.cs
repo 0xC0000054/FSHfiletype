@@ -261,12 +261,13 @@ namespace FSHfiletype
 
                     bool compressed = false;
 
+                    int realWidth, realHeight;
                     using (MemoryStream ms = new MemoryStream())
                     {
                         for (int j = 0; j <= nMips; j++)
                         {
-                            bmpw = (width >> j);
-                            bmph = (height >> j);
+                            bmpw = realWidth = (width >> j);
+                            bmph = realHeight = (height >> j);
 
                             if (format == FshFileFormat.DXT1) // Maxis files use this
                             {
@@ -277,19 +278,34 @@ namespace FSHfiletype
                             if (j > 0)
                             {
                                 surf = new Surface(bmpw, bmph);
-                                surf.FitSurface(ResamplingAlgorithm.SuperSampling, src);
+
+                                if (format == FshFileFormat.DXT1 && (realWidth < bmpw || realHeight < bmph))
+                                {
+                                    // the 2x2 and smaller bitmaps are padded to 4x4 with transparent pixels 
+                                    using (Surface temp = new Surface(realWidth, realHeight))
+                                    {
+                                        temp.FitSurface(ResamplingAlgorithm.SuperSampling, src);
+                                        surf.CopySurface(temp);
+                                    }
+                                }
+                                else
+                                {
+                                    surf.FitSurface(ResamplingAlgorithm.SuperSampling, src); 
+                                }
                             }
 
                             dataLen = GetBmpDataSize(bmpw, bmph, format);
 
                             byte[] data = SaveImageData(surf, format, dataLen);
 
-                            if (!mip.hasPadding && format != FshFileFormat.DXT1)
+
+                            if (!mip.hasPadding && format != FshFileFormat.DXT1 ||
+                                mip.hasPadding && j == nMips)
                             {
                                 while ((dataLen & 15) > 0)
                                 {
                                     data[dataLen++] = 0; // pad to 16 bytes?
-                                }
+                                } 
                             }
 
                             ms.Write(data, 0, dataLen);
@@ -319,11 +335,13 @@ namespace FSHfiletype
 
 					if (mip.count > 0 || compressed)
 					{
-						long sectionLength = output.Position - entryStart;
+                        long newPosition = output.Position;
+						long sectionLength = newPosition - entryStart;
 						int newCode = (((int)sectionLength << 8) | code);
 
 						output.Seek(entryStart, SeekOrigin.Begin);
-						output.Write(BitConverter.GetBytes(newCode), 0, 4);	 
+						output.Write(BitConverter.GetBytes(newCode), 0, 4);
+                        output.Seek(newPosition, SeekOrigin.Begin);
 					}
 
                     List<FSHAttachment> attach = meta.Attachments;
