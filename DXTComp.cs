@@ -220,12 +220,10 @@ namespace FSHfiletype
 		{
 			byte[] comp = new byte[((width * height) / 2) + 2000];
 
-			int h2 = width;
-            int w2 = height;
 
-            if (((h2 & 3) <= 0) && ((w2 & 3) <= 0))
+            if (((height & 3) <= 0) && ((height & 3) <= 0))
             {
-                int stride = 4 * h2;
+                int stride = 4 * width;
                 while ((stride & 4) > 0)
                 {
                     stride++;
@@ -234,10 +232,12 @@ namespace FSHfiletype
                 fixed (byte* ptr = comp)
                 {
                     int row, col, ofs, row2;
-                    for (int y = 0; y < (w2 / 4); y++)
+                    int w2 = width / 4;
+                    int h2 = height / 4;
+                    for (int y = 0; y < w2; y++)
                     {
                         row = 4 * y;
-                        for (int x = 0; x < (h2 / 4); x++)
+                        for (int x = 0; x < h2; x++)
                         { 
                             col = 16 * x;
                             for (int i = 0; i < 4; i++)
@@ -251,7 +251,7 @@ namespace FSHfiletype
                                 }
                             }
 
-                            PackDXT(dxtPixels, (ptr + ((2 * y) * h2)) + (8 * x));
+                            PackDXT(dxtPixels, (ptr + ((2 * y) * width)) + (8 * x));
                         }
                     }
                 }
@@ -310,10 +310,11 @@ namespace FSHfiletype
                     {
                         ofs = 16 * x;
                         col = ofs + 3; // get the alpha offset
+                        row2 = row * width;
                         for (int i = 0; i < 4; i++)
                         {
                             byte* p = (scan0 + ((row + i) * stride)) + col;
-                            byte* tgt = dst + ((row * width) + ofs) + 2 * i;
+                            byte* tgt = dst + (row2 + ofs) + 2 * i;
 
                             tgt[0] = (byte)(((p[0] & 0xf0) >> 4) + (p[4] & 0xf0));
                             tgt[1] = (byte)(((p[8] & 0xf0) >> 4) + (p[12] & 0xf0));
