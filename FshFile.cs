@@ -103,7 +103,7 @@ namespace FSHfiletype
 
 				if (dirText.Length < 4)
 				{
-					dirText = "FiSH";
+					dirText = "0000";
 				}
 
 				int count = input.Layers.Count;
