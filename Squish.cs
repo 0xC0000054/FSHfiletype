@@ -54,7 +54,7 @@ namespace FSHfiletype
 
         internal static unsafe byte[] CompressImage(Surface image, int flags)
         {
-            byte[] pixelData = new byte[(image.Width * image.Height * 4) + 2000];
+            byte[] pixelData = new byte[(image.Width * image.Height * 4)];
 
                 
             fixed (byte* ptr = pixelData)
@@ -84,8 +84,8 @@ namespace FSHfiletype
             int blockCount = ((image.Width + 3) / 4) * ((image.Height + 3) / 4);
             int blockSize = ((flags & (int)SquishFlags.kDxt1) != 0) ? 8 : 16;
 
-            // Allocate room for compressed blocks
-            byte[] blockData = new byte[blockCount * blockSize];
+            // Allocate room for compressed blocks with some padding
+            byte[] blockData = new byte[(blockCount * blockSize) + 1024];
 
             // Invoke squish::CompressImage() with the required parameters
             CompressImageWrapper(pixelData, image.Width, image.Height, blockData, flags);
