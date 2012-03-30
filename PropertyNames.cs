@@ -9,7 +9,6 @@ namespace FSHfiletype
     {
         FileType,
         DirectoryName,
-        FshWriteCompression,
-        AlphaFromTransparency
+        FshWriteCompression
     }
 }
