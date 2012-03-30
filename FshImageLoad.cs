@@ -216,7 +216,7 @@ namespace FSHfiletype
 							int bpp = 0;
 							int mbpLen = 0;
 							int mbpPadLen = 0;
-							int bmpw = 0;
+                            int bmpw = 0;
 							switch (code)
 							{
 								case 0x7b:
@@ -245,10 +245,11 @@ namespace FSHfiletype
 									bmpw += (4 - bmpw) & 3;
 									bmph += (4 - bmph) & 3;
 								}
-								mbpLen += (bmpw * bmph) * bpp / 2;
-								mbpPadLen += (bmpw * bmph) * bpp / 2;
-
-								if (code != 0x60)
+                                int length = ((bmpw * bmph) * bpp) / 2;
+								mbpLen += length;
+								mbpPadLen += length;
+                                // DXT1 mipmaps smaller than 4x4 are also padded
+                                if (((16 - mbpLen) & 15) > 0)
 								{
 									mbpLen += ((16 - mbpLen) & 15); // padding
 									if (n == numScales)
