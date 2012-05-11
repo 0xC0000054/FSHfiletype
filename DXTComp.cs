@@ -221,25 +221,29 @@ namespace FSHfiletype
 			byte[] comp = new byte[((width * height) / 2) + 2000];
 
 
-            if (((height & 3) <= 0) && ((height & 3) <= 0))
-            {
+            if (((height & 3) <= 0) && ((width & 3) <= 0))
+            {   
+                
+                int row, col, ofs, row2;
+                int height2 = height / 4;
+                int width2 = width / 4;
+
                 int stride = 4 * width;
                 while ((stride & 4) > 0)
                 {
                     stride++;
-                }
+                } 
+
                 ulong* dxtPixels = stackalloc ulong[16];
                 fixed (byte* ptr = comp)
                 {
-                    int row, col, ofs, row2;
-                    int w2 = width / 4;
-                    int h2 = height / 4;
-                    for (int y = 0; y < w2; y++)
+                  
+                    for (int y = 0; y < height2; y++)
                     {
                         row = 4 * y;
-                        for (int x = 0; x < h2; x++)
+                        for (int x = 0; x < width2; x++)
                         { 
-                            col = 16 * x;
+                            col = 12 * x;
                             for (int i = 0; i < 4; i++)
                             {
                                 row2 = 4 * i;
@@ -265,8 +269,8 @@ namespace FSHfiletype
 		{
 			byte[] comp = new byte[(width * height)  + 2000];
 
-			int h = height / 4;
-			int w = width / 4;
+			int height2 = height / 4;
+			int width2 = width / 4;
 			int row, col, ofs, row2;
 
 
@@ -280,10 +284,10 @@ namespace FSHfiletype
             {
                 ulong* dxtPixels = stackalloc ulong[16];
 
-                for (int y = 0; y < h; y++)
+                for (int y = 0; y < height2; y++)
                 {
                     row = 4 * y;
-                    for (int x = 0; x < w; x++)
+                    for (int x = 0; x < width2; x++)
                     {
                         col = 16 * x;
                         for (int i = 0; i < 4; i++)
@@ -303,10 +307,10 @@ namespace FSHfiletype
                     }
                 }
 
-                for (int y = 0; y < h; y++)
+                for (int y = 0; y < height2; y++)
                 {
                     row = 4 * y;
-                    for (int x = 0; x < w; x++)
+                    for (int x = 0; x < width2; x++)
                     {
                         ofs = 16 * x;
                         col = ofs + 3; // get the alpha offset
