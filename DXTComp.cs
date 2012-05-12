@@ -243,7 +243,7 @@ namespace FSHfiletype
                         row = 4 * y;
                         for (int x = 0; x < width2; x++)
                         { 
-                            col = 12 * x;
+                            col = 16 * x;
                             for (int i = 0; i < 4; i++)
                             {
                                 row2 = 4 * i;
