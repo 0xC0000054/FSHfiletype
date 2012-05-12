@@ -162,39 +162,38 @@ namespace FSHfiletype
 						}
 
 						fshlen += len;
+					}
 
-                        if (attach != null)
+                    if (attach != null)
+                    {
+                        int attachLen = 0;
+                        int dataLen;
+                        foreach (FSHAttachment item in attach)
                         {
-                            int attachLen = 0;
-                            int dataLen;
-                            foreach (FSHAttachment item in attach)
-                            {
-                                attachCode = item.header.code & 0xff;
-                                dataLen = item.data.Length;
+                            attachCode = item.header.code & 0xff;
+                            dataLen = item.data.Length;
 
-                                if (attachCode == 0 && dataLen > 0)
+                            if (attachCode == 0 && dataLen > 0)
+                            {
+                                attachLen += dataLen;
+                            }
+                            else
+                            {
+                                switch (attachCode)
                                 {
-                                    attachLen += dataLen;
-                                }
-                                else
-                                {
-                                    switch (attachCode)
-                                    {
-                                        case 0x6f: // TXT
-                                            attachLen += (8 + dataLen);
-                                            break;
-                                        case 0x69: // ETXT full header
-                                            attachLen += (16 + dataLen);
-                                            break;
-                                        case 0x70: // ETXT 16 bytes
-                                            attachLen += 16;
-                                            break;
-                                    }
+                                    case 0x6f: // TXT
+                                        attachLen += (8 + dataLen);
+                                        break;
+                                    case 0x69: // ETXT full header
+                                        attachLen += (16 + dataLen);
+                                        break;
+                                    case 0x70: // ETXT 16 bytes
+                                        attachLen += 16;
+                                        break;
                                 }
                             }
                         }
-			  
-					}
+                    }
 				}
 
 				for (int i = 0; i < count; i++)
