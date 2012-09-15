@@ -109,8 +109,8 @@ namespace FSHfiletype
 
                         plainCount = (ccbyte0 & 3);
 
-                        copyCount = (((ccbyte0 >> 2) & 0x03) * 256) + ccbyte3 + 5;
-                        copyOffset = (((ccbyte0 & 16) << 12) + (256 * ccbyte1)) + ccbyte2 + 1;
+                        copyCount = (((ccbyte0 >> 2) & 0x03) << 8) + ccbyte3 + 5;
+                        copyOffset = (((ccbyte0 & 16) << 12) + (ccbyte1 << 8)) + ccbyte2 + 1;
                     }
                     else if (ccbyte0 >= 0x80)
                     {
@@ -121,7 +121,7 @@ namespace FSHfiletype
                         plainCount = (ccbyte1 >> 6) & 0x03;
 
                         copyCount = (ccbyte0 & 0x3F) + 4;
-                        copyOffset = ((ccbyte1 & 0x3F) * 256) + ccbyte2 + 1;
+                        copyOffset = ((ccbyte1 & 0x3F) << 8) + ccbyte2 + 1;
                     }
                     else
                     {
