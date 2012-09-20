@@ -251,7 +251,7 @@ namespace FSHfiletype
                                 for (int j = 0; j < 4; j++)
                                 {
                                     ofs = 4 * j;
-                                    dxtPixels[row2 + j] = (ulong)((p[ofs] + (256 * p[ofs + 1])) + (65536 * p[ofs + 2]));
+                                    dxtPixels[row2 + j] = (ulong)((p[ofs] + (p[ofs + 1] << 8)) + (p[ofs + 2] << 16));
                                 }
                             }
 
@@ -299,7 +299,7 @@ namespace FSHfiletype
                             {
                                 ofs = 4 * j;
 
-                                dxtPixels[row2 + j] = (p[ofs] + (256U * p[ofs + 1]) + (65536U * p[ofs + 2]));
+                                dxtPixels[row2 + j] = (ulong)(p[ofs] +  (p[ofs + 1] << 8) + (p[ofs + 2] << 16));
                             }
                         }
 
