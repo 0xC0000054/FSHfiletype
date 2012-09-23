@@ -44,16 +44,17 @@ namespace FSHfiletype
                             // write the decompressed pixels to the correct image locations
                             sourcePixel = targetRGBA;
                             for (int py = 0; py < 4; py++)
-                            {
+                            {                                    
+                                int sy = y + py;
+                                int stride = width * sy;
                                 for (int px = 0; px < 4; px++)
                                 {
                                     // get the target location
                                     int sx = x + px;
-                                    int sy = y + py;
 
                                     if (sy < width && sy < height)
                                     {
-                                        targetPixel = rgba + 4 * ((width * sy) + sx);
+                                        targetPixel = rgba + 4 * (stride + sx);
 
                                         for (int p = 0; p < 4; p++)
                                         {
