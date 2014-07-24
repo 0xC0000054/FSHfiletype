@@ -55,19 +55,21 @@ namespace FSHfiletype
 
         public static void ProperRead(this Stream s, byte[] buffer, int offset, int count)
         {
-            s.Seek((long)offset, SeekOrigin.Begin);
-
             int numBytesToRead = count;
             int numBytesRead = 0;
+
             while (numBytesToRead > 0)
             {
                 // Read may return anything from 0 to numBytesToRead.
-                int n = s.Read(buffer, numBytesRead, numBytesToRead);
+                int bytesRead = s.Read(buffer, numBytesRead + offset, numBytesToRead);
                 // The end of the file is reached.
-                if (n == 0)
+                if (bytesRead == 0)
+                {
                     break;
-                numBytesRead += n;
-                numBytesToRead -= n;
+                }
+
+                numBytesRead += bytesRead;
+                numBytesToRead -= bytesRead;
             }
         }
     }
