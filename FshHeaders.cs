@@ -11,12 +11,16 @@ namespace FSHfiletype
         public int size;
         public int numBmps;
         public byte[] dirID;
+
+        internal const int SizeOf = 16; 
     }
 
     internal struct FSHDirEntry
     {
         public byte[] name;
         public int offset;
+
+        internal const int SizeOf = 8;
 
         internal FSHDirEntry(byte[] name)
         {
@@ -26,12 +30,16 @@ namespace FSHfiletype
 
     }
 
+    [Serializable]
     internal struct FSHEntryHeader
     {
         public int code;
         public ushort width;
         public ushort height;
         public ushort[] misc;
+
+        [NonSerialized]
+        internal const int SizeOf = 16;
 
         internal FSHEntryHeader(System.IO.Stream stream)
         {
