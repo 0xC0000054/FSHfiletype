@@ -77,10 +77,10 @@ namespace FSHfiletype
 			return size;
 		}
 
-		private MemoryStream Decomp(Stream input)
+		private static MemoryStream UnpackQFS(Stream input)
 		{
 			input.Position = 0L;
-			byte[] bytes = QfsComp.Decomp(input);
+			byte[] bytes = QfsComp.Decompress(input);
 
 			return new MemoryStream(bytes);
 		}
@@ -94,22 +94,21 @@ namespace FSHfiletype
 			
 			MemoryStream ms = null;
 			byte[] compSig = new byte[2];
-			input.Read(compSig, 0, 2);
+			input.ProperRead(compSig, 0, 2);
 
 			if ((compSig[0] & 0xfe)== 16 && compSig[1] == 0xfb)
 			{
-
-				ms = this.Decomp(input);
+				ms = UnpackQFS(input);
 			}
 			else
 			{
 				input.Position = 4L;
 
-				input.Read(compSig, 0, 2);
+				input.ProperRead(compSig, 0, 2);
 
 				if ((compSig[0] & 0xfe) == 16 && compSig[1] == 0xfb)
 				{
-					ms = this.Decomp(input);
+					ms = UnpackQFS(input);
 				}
 				else
 				{
@@ -124,7 +123,7 @@ namespace FSHfiletype
 			try 
 			{	
 				header = new FSHHeader(){ SHPI = new byte[4], dirID = new byte[4] };
-				ms.Read(header.SHPI, 0, 4);
+				ms.ProperRead(header.SHPI, 0, 4);
 
 				if (Encoding.ASCII.GetString(header.SHPI) != "SHPI")
 				{
@@ -133,7 +132,7 @@ namespace FSHfiletype
 
 				header.size = ms.ReadInt32();
 				header.numBmps = ms.ReadInt32();
-				ms.Read(header.dirID, 0, 4);
+				ms.ProperRead(header.dirID, 0, 4);
 
 				int nBmps = header.numBmps;
 
@@ -184,9 +183,6 @@ namespace FSHfiletype
 					bool entryCompressed = (entry.code & 0x80) > 0;
 					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f) || (code == 0x7e) || (code == 0x78) || (code == 0x6d));
 					
-					int numScales = (entry.misc[3] >> 12) & 0x0f;
-					bool packedMbp = false;
-
 					if (isbmp)
 					{
 						FSHEntryHeader auxHeader = entry;
@@ -202,9 +198,12 @@ namespace FSHfiletype
 							}
 							nAttach++;
 
-                            ms.Seek((long)auxOffset, SeekOrigin.Begin);
-                            auxHeader.code = ms.ReadInt32();
+							ms.Seek((long)auxOffset, SeekOrigin.Begin);
+							auxHeader.code = ms.ReadInt32();
 						}
+					
+						int numScales = (entry.misc[3] >> 12) & 0x0f;
+						bool packedMbp = false;
 
 						if (((entry.width % 1) << numScales) > 0 || ((entry.height % 1) << numScales) > 0)
 						{
@@ -216,7 +215,7 @@ namespace FSHfiletype
 							int bpp = 0;
 							int mbpLen = 0;
 							int mbpPadLen = 0;
-                            int bmpw = 0;
+							int bmpw = 0;
 							switch (code)
 							{
 								case 0x7b:
@@ -245,11 +244,11 @@ namespace FSHfiletype
 									bmpw += (4 - bmpw) & 3;
 									bmph += (4 - bmph) & 3;
 								}
-                                int length = ((bmpw * bmph) * bpp) / 2;
+								int length = ((bmpw * bmph) * bpp) / 2;
 								mbpLen += length;
 								mbpPadLen += length;
-                                // DXT1 mipmaps smaller than 4x4 are also padded
-                                if (((16 - mbpLen) & 15) > 0)
+								// DXT1 mipmaps smaller than 4x4 are also padded
+								if (((16 - mbpLen) & 15) > 0)
 								{
 									mbpLen += ((16 - mbpLen) & 15); // padding
 									if (n == numScales)
@@ -271,42 +270,65 @@ namespace FSHfiletype
 						}
 
 
-						FshLoadBitmapItem item = null;
-						Surface surf = null;
 						int width = (int)entry.width;
 						int height = (int)entry.height;
-						long bmppos = (long)(dir.offset + 16);
+						long bmpStartOffset = (long)(dir.offset + FSHEntryHeader.SizeOf);
 
 
-						ms.Seek(bmppos, SeekOrigin.Begin);
+						ms.Seek(bmpStartOffset, SeekOrigin.Begin);
 						int dataSize = GetBmpDataSize(width, height, code);
 						byte[] data = null;
 
 						if (entryCompressed)
 						{
-							int compSize = nextOffset - (int)bmppos;
-							byte[] comp = new byte[compSize];
-							ms.ProperRead(comp, 0, compSize);
+							int compressedSize;
 
-							data = QfsComp.Decomp(comp);
+							if ((entry.code >> 8) > 0)
+							{
+								compressedSize = entry.code >> 8;
+							}
+							else
+							{
+								compressedSize = nextOffset - (int)bmpStartOffset;
+							}
+
+							byte[] comp = new byte[compressedSize];
+							ms.ProperRead(comp, 0, compressedSize);
+
+							data = QfsComp.Decompress(comp);
 						}
 						else
 						{
 							data = new byte[dataSize];
 							ms.ProperRead(data, 0, dataSize);
 						}
-
-						if (code != 0x60 && code != 0x61)
-						{
-							item = new FshLoadBitmapItem(width, height);
-							surf = item.Surface;
-						}
-
+						
+						FshLoadBitmapItem item = new FshLoadBitmapItem(width, height);
+						Surface dest = item.Surface;
 
 						if (code == 0x60 || code == 0x61) // DXT1 or DXT3
 						{
 							byte[] rgba = DXTComp.UnpackDXTImage(data, width, height, (code == 0x60));
-							item = BuildDxtBitmap(rgba, width, height);
+
+							fixed (byte* ptr = data)
+							{
+								int srcStride = width * 4;
+								for (int y = 0; y < height; y++)
+								{
+									byte* src = ptr + (y * srcStride);
+									ColorBgra* p = dest.GetRowAddressUnchecked(y);
+									for (int x = 0; x < width; x++)
+									{
+										p->R = src[0]; // red 
+										p->G = src[1]; // green
+										p->B = src[2]; // blue
+										p->A = src[3]; // alpha
+
+										src += 4;
+										p++;
+									}
+								}
+							}
 						}
 						else if (code == 0x7d) // 32-bit RGBA (BGRA pixel order)
 						{
@@ -315,7 +337,7 @@ namespace FSHfiletype
 								for (int y = 0; y < height; y++)
 								{
 									uint* src = (uint*)ptr + (y * width);
-									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+									ColorBgra* p = dest.GetRowAddressUnchecked(y);
 									for (int x = 0; x < width; x++)
 									{
 										p->Bgra = *src; // since it is BGRA just read it as a UInt32
@@ -329,7 +351,7 @@ namespace FSHfiletype
 						}
 						else if (code == 0x7f) // 24-bit RGB (BGR pixel order)
 						{								
-							new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
+							new UnaryPixelOps.SetAlphaChannelTo255().Apply(dest, dest.Bounds);
 
 							fixed (byte* ptr = data)
 							{
@@ -337,7 +359,7 @@ namespace FSHfiletype
 								for (int y = 0; y < height; y++)
 								{
 									byte* src = ptr + (y * stride);
-									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+									ColorBgra* p = dest.GetRowAddressUnchecked(y);
 									for (int x = 0; x < width; x++)
 									{
 										p->B = src[0]; // blue
@@ -360,7 +382,7 @@ namespace FSHfiletype
 								for (int y = 0; y < height; y++)
 								{
 									ushort* src = sPtr + (y * width);
-									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+									ColorBgra* p = dest.GetRowAddressUnchecked(y);
 
 									for (int x = 0; x < width; x++)
 									{
@@ -382,7 +404,7 @@ namespace FSHfiletype
 						}
 						else if (code == 0x78) // 16-bit (0:5:6:5)
 						{
-							new UnaryPixelOps.SetAlphaChannelTo255().Apply(surf, surf.Bounds);
+							new UnaryPixelOps.SetAlphaChannelTo255().Apply(dest, dest.Bounds);
 
 							fixed (byte* ptr = data)
 							{
@@ -390,7 +412,7 @@ namespace FSHfiletype
 								for (int y = 0; y < height; y++)
 								{
 									ushort* src = sPtr + (y * width);
-									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+									ColorBgra* p = dest.GetRowAddressUnchecked(y);
 
 									for (int x = 0; x < width; x++)
 									{
@@ -414,7 +436,7 @@ namespace FSHfiletype
 								for (int y = 0; y < height; y++)
 								{
 									byte* src = ptr + (y * stride);
-									ColorBgra* p = surf.GetRowAddressUnchecked(y);
+									ColorBgra* p = dest.GetRowAddressUnchecked(y);
 
 									for (int x = 0; x < width; x++)
 									{
@@ -428,98 +450,102 @@ namespace FSHfiletype
 									}
 								}
 							}
-
 						   
 						}
 
-                        List<FSHAttachment> attach = null;
+						List<FSHAttachment> attach = null;
 
-                        if (nAttach > 0)
-                        {
-                            attach = new List<FSHAttachment>(nAttach);
-                            auxOffset = dir.offset;
-                            auxHeader = entry;
-                            for (int j = 0; j < nAttach; j++)
-                            {
-                                auxOffset += (auxHeader.code >> 8);
+						if (nAttach > 0)
+						{
+							attach = new List<FSHAttachment>(nAttach);
+							auxOffset = dir.offset;
+							auxHeader = entry;
+							for (int j = 0; j < nAttach; j++)
+							{
+								auxOffset += (auxHeader.code >> 8);
 
-                                if ((auxOffset + 4) >= size)
-                                {
-                                    break;
-                                }
-                                ms.Seek((long)auxOffset, SeekOrigin.Begin);
+								if ((auxOffset + 4) >= size)
+								{
+									break;
+								}
+								ms.Seek((long)auxOffset, SeekOrigin.Begin);
 
-                                auxHeader = new FSHEntryHeader() 
-                                {
-                                    code = ms.ReadInt32(),
-                                    misc = new ushort[4]
-                                };
-                                int attachCode = (auxHeader.code & 0xff);
+								auxHeader = new FSHEntryHeader() 
+								{
+									code = ms.ReadInt32(),
+									misc = new ushort[4]
+								};
+								int attachCode = (auxHeader.code & 0xff);
 
-                                if (attachCode == 0x6f || attachCode == 0x69 || attachCode == 0x7c)
-                                {
-                                    try
-                                    {
-                                        auxHeader.width = ms.ReadUInt16();
-                                        auxHeader.height = ms.ReadUInt16();
-                                        if (attachCode == 0x69 || attachCode == 0x7c)
-                                        {
-                                            for (int m = 0; m < 4; m++)
-                                            {
-                                                auxHeader.misc[m] = ms.ReadUInt16();
-                                            } 
-                                        }
-                                    }
-                                    catch (EndOfStreamException)
-                                    {
-                                        continue;
-                                    }
-                                }
+								if (attachCode == 0x22 || attachCode == 0x24 || attachCode == 0x29 || attachCode == 0x2a || attachCode == 0x2d)
+								{
+									continue; // Skip any Indexed color palettes.
+								}
 
-                                byte[] attachBytes = null;
-                                int len = 0;
-                                bool binaryData = false;
-                                switch (attachCode)
-                                {
-                                    case 0x6f: // TXT
-                                        attachBytes = new byte[auxHeader.width];
-                                        ms.ProperRead(attachBytes, 0, attachBytes.Length);
-                                        break;
-                                    case 0x69: // ETXT full header
-                                        attachBytes = new byte[auxHeader.width];
-                                        ms.ProperRead(attachBytes, 0, attachBytes.Length);
-                                        break;
-                                    case 0x70: // ETXT 16 bytes
-                                        attachBytes = new byte[12];
-                                        ms.ProperRead(attachBytes, 0, attachBytes.Length);
-                                        break;
-                                    default: // Binary data
-                                        len = (auxHeader.code >> 8);
-                                        if (len == 0)
-                                        {
-                                            len = nextOffset - auxOffset;
-                                        }
-                                        if (len > 16384)
-                                        {
-                                            // attachment data too large skip it
-                                            continue; 
-                                        }
-                                        ms.Seek(auxOffset, SeekOrigin.Begin);
-                                        attachBytes = new byte[len];
-                                        ms.ProperRead(attachBytes, 0, len);
-                                        binaryData = true;
+								if (attachCode == 0x6f || attachCode == 0x69 || attachCode == 0x7c)
+								{
+									try
+									{
+										auxHeader.width = ms.ReadUInt16();
+										auxHeader.height = ms.ReadUInt16();
+										if (attachCode == 0x69 || attachCode == 0x7c)
+										{
+											for (int m = 0; m < 4; m++)
+											{
+												auxHeader.misc[m] = ms.ReadUInt16();
+											} 
+										}
+									}
+									catch (EndOfStreamException)
+									{
+										break;
+									}
+								}
 
-                                        break;
-                                }
+								byte[] attachBytes = null;
+								int len = 0;
+								bool binaryData = false;
+								switch (attachCode)
+								{
+									case 0x6f: // TXT                                    
+									case 0x69: // ETXT full header
+										attachBytes = new byte[auxHeader.width];
+										ms.ProperRead(attachBytes, 0, attachBytes.Length);
+										break;
+									case 0x70: // ETXT 16 bytes
+										attachBytes = new byte[12];
+										ms.ProperRead(attachBytes, 0, attachBytes.Length);
+										break;
+									case 0x7c: // Pixel region, does not have any data other than the misc fields of the header.
+										attachBytes = new byte[0];
+										break;
+									default: // Binary data
+										len = (auxHeader.code >> 8);
+										if (len == 0)
+										{
+											len = nextOffset - auxOffset;
+										}
+										if (len > 16384)
+										{
+											// attachment data too large skip it
+											continue; 
+										}
+										ms.Seek(auxOffset, SeekOrigin.Begin);
+										attachBytes = new byte[len];
+										ms.ProperRead(attachBytes, 0, len);
+										binaryData = true;
+
+										break;
+								}
 
 #if DEBUG
-                                System.Diagnostics.Debug.Assert(data != null);
+								System.Diagnostics.Debug.Assert(data != null);
 #endif
 
-                                attach.Add(new FSHAttachment(auxHeader, attachBytes, binaryData));
-                            }
+								attach.Add(new FSHAttachment(auxHeader, attachBytes, binaryData));
+							}
 
-                        }
+						}
 
 
 						item.MetaData = new FshMetadata(dir.name, numScales, packedMbp, entry.misc, entryCompressed, attach);
@@ -542,44 +568,6 @@ namespace FSHfiletype
 				}
 			}
 		}
-
-		/// <summary>
-		/// Build the alpha and color bitmaps from the uncompressed DXT image data.
-		/// </summary>
-		/// <param name="data">The image data.</param>
-		/// <param name="bmp">The output color bitmap.</param>
-		/// <param name="alpha">The output alpha bitmap.</param>
-		private unsafe FshLoadBitmapItem BuildDxtBitmap(byte[] data, int width, int height)
-		{
-			FshLoadBitmapItem item = new FshLoadBitmapItem(width, height);
-			Surface surf = item.Surface; 
-
-			fixed (byte* ptr = data)
-			{
-				int srcStride = width * 4;
-				for (int y = 0; y < height; y++)
-				{
-					byte* src = ptr + (y * srcStride); 
-					ColorBgra* p = surf.GetRowAddressUnchecked(y);
-					for (int x = 0; x < width; x++)
-					{
-						p->R = src[0]; // red 
-						p->G = src[1]; // green
-						p->B = src[2]; // blue
-						p->A = src[3]; // alpha
-
-						src += 4;
-						p++;
-					}
-				} 
-			}
-			   
-			
-		   
-
-			return item;
-		}
-
 
 		private bool disposed;
 		public void Dispose()
