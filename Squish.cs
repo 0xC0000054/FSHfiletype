@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Runtime.InteropServices;
-using System.Drawing.Imaging;
-using System.Drawing;
 using PaintDotNet;
 
 namespace FSHfiletype
@@ -14,13 +9,13 @@ namespace FSHfiletype
         [System.Security.SuppressUnmanagedCodeSecurity]
         private static class Squish_32
         {
-            [DllImport(@"squish_Win32.dll")]
+            [DllImport("squish_Win32.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
             public static extern unsafe void CompressImage(byte* rgba, int width, int height, byte* blocks, int flags);
         }
         [System.Security.SuppressUnmanagedCodeSecurity]
         private static class Squish_64
         {
-            [DllImport(@"squish_x64.dll")]
+            [DllImport("squish_x64.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
             public static extern unsafe void CompressImage(byte* rgba, int width, int height, byte* blocks, int flags);
         }
 
@@ -93,10 +88,6 @@ namespace FSHfiletype
             // Return our block data to caller..
             return blockData;
         }
-        private static bool Is64bit()
-        {
-            return (IntPtr.Size == 8);
-        }
        
         private static unsafe void CompressImageWrapper(byte[] rgba, int width, int height, byte[] blocks, int flags)
         {
@@ -104,7 +95,7 @@ namespace FSHfiletype
             {
                 fixed (byte* Blocks = blocks)
                 {
-                    if (Is64bit())
+                    if (IntPtr.Size == 8)
                     {
                         Squish_64.CompressImage(RGBA, width, height, Blocks, flags);
                     }
