@@ -53,6 +53,20 @@ namespace FSHfiletype
             return (ushort)((byte1 << 8) | byte0);
         }
 
+        public static void WriteUInt16(this Stream s, ushort value)
+        {
+            s.WriteByte((byte)(value & 0xff));
+            s.WriteByte((byte)((value >> 8) & 0xff));
+        }
+
+        public static void WriteInt32(this Stream s, int value)
+        {
+            s.WriteByte((byte)(value & 0xff));
+            s.WriteByte((byte)((value >> 8) & 0xff));
+            s.WriteByte((byte)((value >> 16) & 0xff));
+            s.WriteByte((byte)((value >> 24) & 0xff));
+        }
+
         public static void ProperRead(this Stream s, byte[] buffer, int offset, int count)
         {
             int numBytesToRead = count;
