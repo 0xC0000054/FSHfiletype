@@ -1,22 +1,17 @@
 ﻿using System;
 using System.IO;
 using FSHfiletype.Properties;
-using PaintDotNet.IO;
-#if DEBUG
-using System.Diagnostics;
-#endif
 
 namespace FSHfiletype
 {
     static class QfsComp
     {
-
-        public static byte[] Decomp(Stream input)
+        public static byte[] Decompress(Stream input)
         {
             byte[] bytes = new byte[input.Length];
             input.ProperRead(bytes, 0, (int)input.Length);
 
-            return Decomp(bytes);
+            return Decompress(bytes);
         }
 
         /// <summary>
@@ -24,22 +19,23 @@ namespace FSHfiletype
         /// </summary>
         /// <param name="compressedData">The byte array to decompress</param>
         /// <returns>A MemoryStream containing the decompressed data</returns>
-        public unsafe static byte[] Decomp(byte[] compressedData)
+        public unsafe static byte[] Decompress(byte[] compressedData)
         {
             if (compressedData == null)
+            {
                 throw new ArgumentNullException("compressedData");
+            }
 
-            int length = compressedData.Length;
 
             int outIndex = 0;
             int outLength = 0;
 
             int startOffset = 0;
 
-            if (compressedData[0] != 16 || compressedData[1] != 0xfb)
+            if (compressedData[0] != 0x10 || compressedData[1] != 0xfb)
             {
                 startOffset = 4;
-                if (compressedData[4] != 16 && compressedData[5] != 0xfb)
+                if (compressedData[4] != 0x10 && compressedData[5] != 0xfb)
                 {
                     throw new NotSupportedException(Resources.UnsupportedCompressionFormat);
                 }
@@ -59,16 +55,18 @@ namespace FSHfiletype
                 index = 8;
             }
 
-            byte ccbyte0 = 0; // control char 0
-            byte ccbyte1 = 0; // control char 1
-            byte ccbyte2 = 0; // control char 2
-            byte ccbyte3 = 0; // control char 3
+            byte ccbyte1 = 0; // control char 0
+            byte ccbyte2 = 0; // control char 1
+            byte ccbyte3 = 0; // control char 2
+            byte ccbyte4 = 0; // control char 3
 
             int plainCount = 0;
             int copyCount = 0;
             int copyOffset = 0;
 
-            int srcIndex = 0;
+            int srcIndex = 0;            
+            int length = compressedData.Length;
+
             fixed (byte* compressed = compressedData, uncompressed = unCompressedData)
             {
                 byte* compData = compressed + index;
@@ -76,83 +74,75 @@ namespace FSHfiletype
 
                 while (index < length && outIndex < outLength) // code adapted from http://simswiki.info/wiki.php?title=DBPF_Compression
                 {
-                    ccbyte0 = *compData++;
+                    ccbyte1 = *compData++;
                     index++;
 
-                    if (ccbyte0 >= 0xFC)
+                    if (ccbyte1 >= 0xFC) // 1 byte EOF op code 0xFC - 0xFF 
                     {
-                        plainCount = (ccbyte0 & 3);
+                        plainCount = (ccbyte1 & 3);
 
                         if ((index + plainCount) > length)
                         {
-                            plainCount = (int)(length - index);
+                            plainCount = length - index;
                         }
 
 
                         copyCount = 0;
                         copyOffset = 0;
                     }
-                    else if (ccbyte0 >= 0xE0)
+                    else if (ccbyte1 >= 0xE0) // 1 byte op code 0xE0 - 0xFB
                     {
-                        plainCount = (ccbyte0 - 0xDF) << 2;
+                        plainCount = ((ccbyte1 & 0x1F) << 2) + 4;
 
                         copyCount = 0;
                         copyOffset = 0;
                     }
-                    else if (ccbyte0 >= 0xC0)
+                    else if (ccbyte1 >= 0xC0) // 4 byte op code 0xC0 - 0xDF
                     {
-                        ccbyte1 = *compData++;
                         ccbyte2 = *compData++;
                         ccbyte3 = *compData++;
+                        ccbyte4 = *compData++;
 
                         index += 3;
 
-                        plainCount = (ccbyte0 & 3);
+                        plainCount = (ccbyte1 & 3);
 
-                        copyCount = (((ccbyte0 >> 2) & 0x03) << 8) + ccbyte3 + 5;
-                        copyOffset = (((ccbyte0 & 16) << 12) + (ccbyte1 << 8)) + ccbyte2 + 1;
+                        copyCount = ((ccbyte1 & 0x0C) << 6) + ccbyte4 + 5;
+                        copyOffset = (((ccbyte1 & 0x10) << 12) + (ccbyte2 << 8)) + ccbyte3 + 1;
                     }
-                    else if (ccbyte0 >= 0x80)
+                    else if (ccbyte1 >= 0x80) // 3 byte op code 0x80 - 0xBF
                     {
-                        ccbyte1 = *compData++;
                         ccbyte2 = *compData++;
+                        ccbyte3 = *compData++;
                         index += 2;
 
-                        plainCount = (ccbyte1 >> 6) & 0x03;
+                        plainCount = (ccbyte2 & 0xC0) >> 6;
 
-                        copyCount = (ccbyte0 & 0x3F) + 4;
-                        copyOffset = ((ccbyte1 & 0x3F) << 8) + ccbyte2 + 1;
+                        copyCount = (ccbyte1 & 0x3F) + 4;
+                        copyOffset = ((ccbyte2 & 0x3F) << 8) + ccbyte3 + 1;
                     }
-                    else
+                    else // 2 byte op code 0x00 - 0x7F
                     {
 #if DEBUG
-                    if ((index + 1L) >= compressedData.Length)
-                    {
-                        Debugger.Break();
-
-                        /*using (FileStream fs = new FileStream(@"C:\Dev_projects\sc4\readfshdat\bin\Debug\dump.qfs",FileMode.Create, FileAccess.Write))
+                        if ((index + 1) >= compressedData.Length)
                         {
-                            byte[] buf = ((MemoryStream)input).ToArray();
-                            fs.Write(buf, ccbyte0, buf.Length);
-                        }*/
-
-
-                        Debug.WriteLine(ccbyte0.ToString("X1"));
-                    }
+                            System.Diagnostics.Debugger.Break();
+                            System.Diagnostics.Debug.WriteLine(ccbyte1.ToString("X1"));
+                        }
 #endif
 
-                        ccbyte1 = *compData++;
+                        ccbyte2 = *compData++;
                         index++;
 
-                        plainCount = (ccbyte0 & 3);
+                        plainCount = (ccbyte1 & 3);
 
-                        copyCount = ((ccbyte0 & 0x1c) >> 2) + 3;
-                        copyOffset = ((ccbyte0 >> 5) << 8) + ccbyte1 + 1;
+                        copyCount = ((ccbyte1 & 0x1C) >> 2) + 3;
+                        copyOffset = ((ccbyte1 >> 5) << 8) + ccbyte2 + 1;
                     }
 
                     byte* pDst = unCompData + outIndex;
                     Copy(ref compData, ref pDst, plainCount);
-     
+
                     index += plainCount;
                     outIndex += plainCount;
 
@@ -187,12 +177,16 @@ namespace FSHfiletype
         /// Compresses the input byte array with QFS compression
         /// </summary>
         /// <param name="input">The input byte array to compress</param>
-        /// <returns>The compressed data or null if the compession fails</returns>
+        /// <param name="prefixLength">If set to true prefix the size of the compressed data, as is used by SC4; otherwise false.</param>
+        /// <returns>The compressed data or null if the compression fails.</returns>
+        /// <exception cref="System.ArgumentNullException">input;input byte array is null.</exception>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1814:PreferJaggedArraysOverMultidimensional", MessageId = "Body"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity")]
-        public static byte[] Comp(byte[] input, bool incLen)
+        public static byte[] Compress(byte[] input, bool prefixLength)
         {
             if (input == null)
+            {
                 throw new ArgumentNullException("input", "input byte array is null.");
+            }
 
             int inlen = (int)input.Length;
             byte[] inbuf = new byte[(inlen + 1028)]; // 1028 byte safety buffer
@@ -222,10 +216,10 @@ namespace FSHfiletype
             byte[] outbuf = new byte[inlen + 2048];
             outbuf[0] = 0x10;
             outbuf[1] = 0xfb;
-            outbuf[2] = (byte)(inlen >> 16);
+            outbuf[2] = (byte)((inlen >> 16) & 0xff);
             outbuf[3] = (byte)((inlen >> 8) & 0xff);
             outbuf[4] = (byte)(inlen & 0xff);
-            int outidx = 5;
+            int outIndex = 5;
             int index = 0;
             lastwrot = 0;
             for (index = 0; index < inlen; index++)
@@ -280,59 +274,67 @@ namespace FSHfiletype
                             {
                                 len = 0x1b;
                             }
-                            outbuf[outidx++] = (byte)(0xe0 + len);
+                            outbuf[outIndex++] = (byte)(0xe0 + len);
                             len = (4 * len) + 4;
-                            if ((outidx + len) >= outbuf.Length)
+                            if ((outIndex + len) >= outbuf.Length)
+                            {
                                 return null;// data did not compress so return null
+                            }
 
-                            Buffer.BlockCopy(inbuf, lastwrot, outbuf, outidx, len);
+                            Buffer.BlockCopy(inbuf, lastwrot, outbuf, outIndex, len);
                             lastwrot += len;
-                            outidx += len;
+                            outIndex += len;
                         }
                         len = index - lastwrot;
                         if ((bestlen <= 10) && (bestoffs <= 1024))
                         {
-                            outbuf[outidx++] = (byte)(((((bestoffs - 1) >> 8) << 5) + ((bestlen - 3) << 2)) + len);
-                            outbuf[outidx++] = (byte)((bestoffs - 1) & 0xff);
+                            outbuf[outIndex++] = (byte)(((((bestoffs - 1) >> 8) << 5) + ((bestlen - 3) << 2)) + len);
+                            outbuf[outIndex++] = (byte)((bestoffs - 1) & 0xff);
 
-                            if ((outidx + len) >= outbuf.Length)
+                            if ((outIndex + len) >= outbuf.Length)
+                            {
                                 return null;// data did not compress so return null
+                            }
 
                             while (len-- > 0)
                             {
-                                outbuf[outidx++] = inbuf[lastwrot++];
+                                outbuf[outIndex++] = inbuf[lastwrot++];
                             }
                             lastwrot += bestlen;
                         }
                         else if ((bestlen <= 67) && (bestoffs <= 16384))
                         {
-                            outbuf[outidx++] = (byte)(0x80 + (bestlen - 4));
-                            outbuf[outidx++] = (byte)((len << 6) + ((bestoffs - 1) >> 8));
-                            outbuf[outidx++] = (byte)((bestoffs - 1) & 0xff);
+                            outbuf[outIndex++] = (byte)(0x80 + (bestlen - 4));
+                            outbuf[outIndex++] = (byte)((len << 6) + ((bestoffs - 1) >> 8));
+                            outbuf[outIndex++] = (byte)((bestoffs - 1) & 0xff);
 
-                            if ((outidx + len) >= outbuf.Length)
+                            if ((outIndex + len) >= outbuf.Length)
+                            {
                                 return null;// data did not compress so return null
+                            }
 
                             while (len-- > 0)
                             {
-                                outbuf[outidx++] = inbuf[lastwrot++];
+                                outbuf[outIndex++] = inbuf[lastwrot++];
                             }
                             lastwrot += bestlen;
                         }
                         else if ((bestlen <= QfsMaxBlockSize) && (bestoffs < CompMaxLen)) // 0x20
                         {
                             bestoffs--;
-                            outbuf[outidx++] = (byte)(((0xc0 + ((bestoffs >> 0x10) << 4)) + (((bestlen - 5) >> 8) << 2)) + len);
-                            outbuf[outidx++] = (byte)((bestoffs >> 8) & 0xff);
-                            outbuf[outidx++] = (byte)(bestoffs & 0xff);
-                            outbuf[outidx++] = (byte)((bestlen - 5) & 0xff);
+                            outbuf[outIndex++] = (byte)(((0xc0 + ((bestoffs >> 0x10) << 4)) + (((bestlen - 5) >> 8) << 2)) + len);
+                            outbuf[outIndex++] = (byte)((bestoffs >> 8) & 0xff);
+                            outbuf[outIndex++] = (byte)(bestoffs & 0xff);
+                            outbuf[outIndex++] = (byte)((bestlen - 5) & 0xff);
 
-                            if ((outidx + len) >= outbuf.Length)
+                            if ((outIndex + len) >= outbuf.Length)
+                            {
                                 return null;
+                            }
 
                             while (len-- > 0)
                             {
-                                outbuf[outidx++] = inbuf[lastwrot++];
+                                outbuf[outIndex++] = inbuf[lastwrot++];
                             }
                             lastwrot += bestlen;
                         }
@@ -348,49 +350,52 @@ namespace FSHfiletype
                 {
                     len = 0x1b;
                 }
-                outbuf[outidx++] = (byte)(0xe0 + len);
+                outbuf[outIndex++] = (byte)(0xe0 + len);
                 len = (4 * len) + 4;
 
-                if ((outidx + len) >= outbuf.Length)
-                    return null;// data did not compress so return null
+                if ((outIndex + len) >= outbuf.Length)
+                {
+                    return null; // data did not compress so return null
+                }
 
-                Buffer.BlockCopy(inbuf, lastwrot, outbuf, outidx, len);
+                Buffer.BlockCopy(inbuf, lastwrot, outbuf, outIndex, len);
                 lastwrot += len;
-                outidx += len;
+                outIndex += len;
             }
             len = index - lastwrot;
 
-            if ((outidx + len) >= outbuf.Length) // add in the remaining data length to check for available space
+            if ((outIndex + len) >= outbuf.Length) // add in the remaining data length to check for available space
             {
-                return null; // data did not compress so return null
+                return null;
             }
 
-            outbuf[outidx++] = (byte)(0xfc + len);
+            outbuf[outIndex++] = (byte)(0xfc + len);
 
 
             while (len-- > 0)
             {
-                if (outidx >= outbuf.Length)
+                if (outIndex >= outbuf.Length)
+                {
                     return null;
+                }
 
-                outbuf[outidx++] = inbuf[lastwrot++];
+                outbuf[outIndex++] = inbuf[lastwrot++];
             }
 
-            if (incLen)
+            if (prefixLength)
             {
-                byte[] temp = new byte[outidx + 4]; // trim the outbuf array to it's actual length
-                
-                Array.Copy(BitConverter.GetBytes(outidx), temp, 4); // write the compressed length before the actual data
-                Buffer.BlockCopy(outbuf, 0, temp, 4, outidx); 
-                outbuf = temp;    
+                byte[] temp = new byte[outIndex + 4];
+
+                Array.Copy(BitConverter.GetBytes(outIndex), temp, 4); // write the compressed length before the actual data
+                Buffer.BlockCopy(outbuf, 0, temp, 4, outIndex);
+                outbuf = temp;
             }
             else
             {
-                byte[] temp = new byte[outidx]; // trim the outbuf array to it's actual length
-                Buffer.BlockCopy(outbuf, 0, temp, 0, outidx);
-                outbuf = temp;    
+                byte[] temp = new byte[outIndex]; // trim the outbuf array to it's actual length
+                Buffer.BlockCopy(outbuf, 0, temp, 0, outIndex);
+                outbuf = temp;
             }
-           
 
             return outbuf;
         }
