@@ -310,7 +310,7 @@ namespace FSHfiletype
 						{
 							byte[] rgba = DXTComp.UnpackDXTImage(data, width, height, (code == 0x60));
 
-							fixed (byte* ptr = data)
+							fixed (byte* ptr = rgba)
 							{
 								int srcStride = width * 4;
 								for (int y = 0; y < height; y++)
