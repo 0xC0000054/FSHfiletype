@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Globalization;
 using System.Runtime.Serialization;
 using System.Text;
@@ -56,25 +55,19 @@ namespace FSHfiletype
 			}
 		}
 
-		public void SetCurrentLayerSize(Size layerSize)
-		{
-			this.mipData.layerWidth = layerSize.Width;
-			this.mipData.layerHeight = layerSize.Height;
-		}
-
 		public FshMetadata(byte[] dirName, int mipCount, bool mipPadding, ushort[] misc, bool compressed, List<FSHAttachment> attach)
 		{
 			this.dirName = dirName;
-			this.mipData = new MipData(mipCount, mipPadding, new Size(0, 0));
+			this.mipData = new MipData(mipCount, mipPadding);
 			this.misc = misc;
 			this.entryCompressed = compressed;
 			this.attachments = attach;
 		}   
 
-		public FshMetadata(byte[] name, Size layerSize)
+		public FshMetadata(byte[] name)
 		{
 			this.dirName = name;
-			this.mipData = new MipData(0, false, layerSize);
+			this.mipData = new MipData(0, false);
 			this.misc = null;
 			this.entryCompressed = false;
 			this.attachments = null;
@@ -89,14 +82,14 @@ namespace FSHfiletype
 			this.attachments = null;
 		}
 
-		public static FshMetadata FromEncodedString(string data, Size size)
+		public static FshMetadata FromEncodedString(string data)
 		{
 			string[] val = data.Split(',');
 
 			FshMetadata metaData = new FshMetadata();
 
 			metaData.dirName = Encoding.ASCII.GetBytes(val[0]);
-			metaData.mipData = new MipData(int.Parse(val[1], CultureInfo.InvariantCulture), bool.Parse(val[2]), size);
+			metaData.mipData = new MipData(int.Parse(val[1], CultureInfo.InvariantCulture), bool.Parse(val[2]));
 
 			string[] miscStr = val[3].Split('_');
 
@@ -131,17 +124,11 @@ namespace FSHfiletype
 	{
 		public int count;
 		public bool hasPadding;
-		[NonSerialized]
-		public int layerWidth;
-		[NonSerialized]
-		public int layerHeight;
 
-		public MipData(int count, bool padded, Size size)
+		public MipData(int count, bool padded)
 		{
 			this.count = count;
 			this.hasPadding = padded;
-			this.layerHeight = size.Height;
-			this.layerWidth = size.Width;
 		}
 	}
 
