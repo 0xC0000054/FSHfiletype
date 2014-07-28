@@ -17,11 +17,9 @@ namespace FSHfiletype
 	{
 		public FshImageLoad()
 		{
-			disposed = false;
-			bitmaps = new List<FshLoadBitmapItem>();
-			header = new FSHHeader();
-			dirs = null;
-			entries = null;
+			this.disposed = false;
+			this.bitmaps = new List<FshLoadBitmapItem>();
+			this.header = null;
 		}
 
 		public FshImageLoad(Stream input) : this()
@@ -31,8 +29,6 @@ namespace FSHfiletype
 
 		private List<FshLoadBitmapItem> bitmaps;
 		private FSHHeader header;
-		private FSHDirEntry[] dirs;
-		private FSHEntryHeader[] entries;
 
 		public List<FshLoadBitmapItem> Bitmaps
 		{
@@ -91,14 +87,14 @@ namespace FSHfiletype
 			{
 				throw new FileFormatException(Resources.InvalidFshFile);
 			}
-			
-			MemoryStream ms = null;
+
+			MemoryStream decompressedData = null;
 			byte[] compSig = new byte[2];
 			input.ProperRead(compSig, 0, 2);
 
-			if ((compSig[0] & 0xfe)== 16 && compSig[1] == 0xfb)
+			if ((compSig[0] & 0xfe) == 0x10 && compSig[1] == 0xfb)
 			{
-				ms = UnpackQFS(input);
+				decompressedData = UnpackQFS(input);
 			}
 			else
 			{
@@ -106,65 +102,49 @@ namespace FSHfiletype
 
 				input.ProperRead(compSig, 0, 2);
 
-				if ((compSig[0] & 0xfe) == 16 && compSig[1] == 0xfb)
+				if ((compSig[0] & 0xfe) == 0x10 && compSig[1] == 0xfb)
 				{
-					ms = UnpackQFS(input);
+					decompressedData = UnpackQFS(input);
 				}
 				else
 				{
 					input.Position = 0L;
-					byte[] bytes = new byte[input.Length];
-					input.ProperRead(bytes, 0, bytes.Length);
-
-					ms = new MemoryStream(bytes);
 				}
 			}
-		   
-			try 
-			{	
-				header = new FSHHeader(){ SHPI = new byte[4], dirID = new byte[4] };
-				ms.ProperRead(header.SHPI, 0, 4);
 
-				if (Encoding.ASCII.GetString(header.SHPI) != "SHPI")
-				{
-					throw new FileFormatException(Resources.InvalidFshHeader);
-				}
 
-				header.size = ms.ReadInt32();
-				header.numBmps = ms.ReadInt32();
-				ms.ProperRead(header.dirID, 0, 4);
+			Stream stream = decompressedData ?? input;
+			try
+			{
+				this.header = new FSHHeader(stream);
 
-				int nBmps = header.numBmps;
+				int nBmps = header.ImageCount;
 
-				this.dirs = new FSHDirEntry[nBmps];
+				FSHDirEntry[] dirs = new FSHDirEntry[nBmps];
 				for (int i = 0; i < nBmps; i++)
 				{
-					dirs[i] = new FSHDirEntry() { name = new byte[4] };
-					ms.Read(dirs[i].name, 0, 4);
-					dirs[i].offset = ms.ReadInt32();
+					dirs[i] = new FSHDirEntry(stream);
 				}
-
-
 
 				for (int i = 0; i < nBmps; i++)
 				{
-					ms.Seek((long)dirs[i].offset, SeekOrigin.Begin);
-					int code = (ms.ReadInt32() & 0x7f);
+					stream.Seek((long)dirs[i].offset, SeekOrigin.Begin);
+					int code = (stream.ReadInt32() & 0x7f);
 
 					if (code == 0x7b)
 					{
-						throw new FileFormatException(Resources.UnsupportedFshFormat);
+						throw new FileFormatException(Resources.IndexedFormatNotSupported);
 					}
 				}
-				int size = header.size;
+				int size = header.Size;
 
 
-				this.entries = new FSHEntryHeader[nBmps];
+				FSHEntryHeader[] entries = new FSHEntryHeader[nBmps];
 				this.bitmaps = new List<FshLoadBitmapItem>(nBmps);
 
 				int nextOffset = size;
 				for (int i = 0; i < nBmps; i++)
-				{ 
+				{
 					FSHDirEntry dir = dirs[i];
 					for (int j = 0; j < nBmps; j++)
 					{
@@ -174,15 +154,15 @@ namespace FSHfiletype
 						}
 					}
 
-					ms.Seek((long)dir.offset, SeekOrigin.Begin);
-					FSHEntryHeader entry = entries[i];
-					entry = new FSHEntryHeader(ms);
-					
+					stream.Seek((long)dir.offset, SeekOrigin.Begin);
+					FSHEntryHeader entry = new FSHEntryHeader(stream);
+					entries[i] = entry;
+ 
 
 					int code = (entry.code & 0x7f);
 					bool entryCompressed = (entry.code & 0x80) > 0;
 					bool isbmp = ((code == 0x60) || (code == 0x61) || (code == 0x7d) || (code == 0x7f) || (code == 0x7e) || (code == 0x78) || (code == 0x6d));
-					
+
 					if (isbmp)
 					{
 						FSHEntryHeader auxHeader = entry;
@@ -198,10 +178,10 @@ namespace FSHfiletype
 							}
 							nAttach++;
 
-							ms.Seek((long)auxOffset, SeekOrigin.Begin);
-							auxHeader.code = ms.ReadInt32();
+							stream.Seek((long)auxOffset, SeekOrigin.Begin);
+							auxHeader.code = stream.ReadInt32();
 						}
-					
+
 						int numScales = (entry.misc[3] >> 12) & 0x0f;
 						bool packedMbp = false;
 
@@ -247,13 +227,15 @@ namespace FSHfiletype
 								int length = ((bmpw * bmph) * bpp) / 2;
 								mbpLen += length;
 								mbpPadLen += length;
-								// DXT1 mipmaps smaller than 4x4 are also padded
-								if (((16 - mbpLen) & 15) > 0)
+								
+                                // DXT1 mipmaps smaller than 4x4 are also padded
+                                int padding = ((16 - mbpLen) & 15);
+								if (padding > 0)
 								{
-									mbpLen += ((16 - mbpLen) & 15); // padding
+									mbpLen += padding;
 									if (n == numScales)
 									{
-										mbpPadLen += ((16 - mbpPadLen) & 15);
+										mbpPadLen += padding;
 									}
 								}
 							}
@@ -275,7 +257,7 @@ namespace FSHfiletype
 						long bmpStartOffset = (long)(dir.offset + FSHEntryHeader.SizeOf);
 
 
-						ms.Seek(bmpStartOffset, SeekOrigin.Begin);
+						stream.Seek(bmpStartOffset, SeekOrigin.Begin);
 						int dataSize = GetBmpDataSize(width, height, code);
 						byte[] data = null;
 
@@ -293,16 +275,16 @@ namespace FSHfiletype
 							}
 
 							byte[] comp = new byte[compressedSize];
-							ms.ProperRead(comp, 0, compressedSize);
+							stream.ProperRead(comp, 0, compressedSize);
 
 							data = QfsComp.Decompress(comp);
 						}
 						else
 						{
 							data = new byte[dataSize];
-							ms.ProperRead(data, 0, dataSize);
+							stream.ProperRead(data, 0, dataSize);
 						}
-						
+
 						FshLoadBitmapItem item = new FshLoadBitmapItem(width, height);
 						Surface dest = item.Surface;
 
@@ -350,7 +332,7 @@ namespace FSHfiletype
 
 						}
 						else if (code == 0x7f) // 24-bit RGB (BGR pixel order)
-						{								
+						{
 							new UnaryPixelOps.SetAlphaChannelTo255().Apply(dest, dest.Bounds);
 
 							fixed (byte* ptr = data)
@@ -375,7 +357,7 @@ namespace FSHfiletype
 						}
 						else if (code == 0x7e) // 16-bit (1:5:5:5)
 						{
-							
+
 							fixed (byte* ptr = data)
 							{
 								ushort* sPtr = (ushort*)ptr;
@@ -426,12 +408,12 @@ namespace FSHfiletype
 								}
 							}
 
-						  
+
 						}
 						else if (code == 0x6d) // 16-bit (4:4:4:4)
 						{
 							fixed (byte* ptr = data)
-							{							
+							{
 								int stride = width * 2;
 								for (int y = 0; y < height; y++)
 								{
@@ -450,7 +432,7 @@ namespace FSHfiletype
 									}
 								}
 							}
-						   
+
 						}
 
 						List<FSHAttachment> attach = null;
@@ -468,12 +450,11 @@ namespace FSHfiletype
 								{
 									break;
 								}
-								ms.Seek((long)auxOffset, SeekOrigin.Begin);
+								stream.Seek((long)auxOffset, SeekOrigin.Begin);
 
-								auxHeader = new FSHEntryHeader() 
+								auxHeader = new FSHEntryHeader()
 								{
-									code = ms.ReadInt32(),
-									misc = new ushort[4]
+									code = stream.ReadInt32()
 								};
 								int attachCode = (auxHeader.code & 0xff);
 
@@ -486,14 +467,14 @@ namespace FSHfiletype
 								{
 									try
 									{
-										auxHeader.width = ms.ReadUInt16();
-										auxHeader.height = ms.ReadUInt16();
+										auxHeader.width = stream.ReadUInt16();
+										auxHeader.height = stream.ReadUInt16();
 										if (attachCode == 0x69 || attachCode == 0x7c)
 										{
 											for (int m = 0; m < 4; m++)
 											{
-												auxHeader.misc[m] = ms.ReadUInt16();
-											} 
+												auxHeader.misc[m] = stream.ReadUInt16();
+											}
 										}
 									}
 									catch (EndOfStreamException)
@@ -510,11 +491,11 @@ namespace FSHfiletype
 									case 0x6f: // TXT                                    
 									case 0x69: // ETXT full header
 										attachBytes = new byte[auxHeader.width];
-										ms.ProperRead(attachBytes, 0, attachBytes.Length);
+										stream.ProperRead(attachBytes, 0, attachBytes.Length);
 										break;
 									case 0x70: // ETXT 16 bytes
 										attachBytes = new byte[12];
-										ms.ProperRead(attachBytes, 0, attachBytes.Length);
+										stream.ProperRead(attachBytes, 0, attachBytes.Length);
 										break;
 									case 0x7c: // Pixel region, does not have any data other than the misc fields of the header.
 										attachBytes = new byte[0];
@@ -528,11 +509,11 @@ namespace FSHfiletype
 										if (len > 16384)
 										{
 											// attachment data too large skip it
-											continue; 
+											continue;
 										}
-										ms.Seek(auxOffset, SeekOrigin.Begin);
+										stream.Seek(auxOffset, SeekOrigin.Begin);
 										attachBytes = new byte[len];
-										ms.ProperRead(attachBytes, 0, len);
+										stream.ProperRead(attachBytes, 0, len);
 										binaryData = true;
 
 										break;
@@ -561,10 +542,10 @@ namespace FSHfiletype
 			}
 			finally
 			{
-				if (ms != null)
+				if (decompressedData != null)
 				{
-					ms.Dispose();
-					ms = null;
+					decompressedData.Dispose();
+					decompressedData = null;
 				}
 			}
 		}
