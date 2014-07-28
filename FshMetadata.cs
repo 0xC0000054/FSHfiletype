@@ -144,7 +144,7 @@ namespace FSHfiletype
 		{
 			if (binData)
 			{
-				this.header = new FSHEntryHeader() { code = -1};
+				this.header = null;
 			}
 			else
 			{
@@ -158,7 +158,7 @@ namespace FSHfiletype
 		{
 			string[] data = value.Split('|');
 
-			this.header = new FSHEntryHeader() { misc = new ushort[4] };
+			this.header = new FSHEntryHeader();
 
 			if (!string.IsNullOrEmpty(data[0]))
 			{
