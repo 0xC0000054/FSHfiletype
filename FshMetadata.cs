@@ -142,14 +142,7 @@ namespace FSHfiletype
 
 		internal FSHAttachment(FSHEntryHeader head, byte[] bytes, bool binData)
 		{
-			if (binData)
-			{
-				this.header = null;
-			}
-			else
-			{
-				this.header = head;
-			} 
+			this.header = head;
 			this.data = bytes;
 			this.isBinary = binData;
 		}
