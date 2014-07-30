@@ -165,7 +165,7 @@ namespace FSHfiletype
 
 					if (isbmp)
 					{
-						FSHEntryHeader auxHeader = entry;
+						FSHEntryHeader auxHeader = entry.Clone();
 						int nAttach = 0;
 						int auxOffset = dir.offset;
 						while ((auxHeader.code >> 8) > 0)
@@ -228,8 +228,8 @@ namespace FSHfiletype
 								mbpLen += length;
 								mbpPadLen += length;
 								
-                                // DXT1 mipmaps smaller than 4x4 are also padded
-                                int padding = ((16 - mbpLen) & 15);
+								// DXT1 mipmaps smaller than 4x4 are also padded
+								int padding = ((16 - mbpLen) & 15);
 								if (padding > 0)
 								{
 									mbpLen += padding;
@@ -511,7 +511,6 @@ namespace FSHfiletype
 											// attachment data too large skip it
 											continue;
 										}
-										stream.Seek(auxOffset, SeekOrigin.Begin);
 										attachBytes = new byte[len];
 										stream.ProperRead(attachBytes, 0, len);
 										binaryData = true;
