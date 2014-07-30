@@ -50,11 +50,11 @@ namespace FSHfiletype
             stream.ProperRead(this.dirID, 0, 4);
         }
 
-        public FSHHeader(int imageCount, byte[] dirID)
+        public FSHHeader(int imageCount, string dirID)
         {
             this.size = 0;
             this.imageCount = imageCount;
-            this.dirID = dirID;
+            this.dirID = Encoding.ASCII.GetBytes(dirID);
         }
 
         public void Save(Stream stream)
@@ -122,6 +122,19 @@ namespace FSHfiletype
             {
                 this.misc[m] = stream.ReadUInt16();
             }
+        }
+
+        private FSHEntryHeader(FSHEntryHeader cloneMe)
+        {
+            this.code = cloneMe.code;
+            this.width = cloneMe.width;
+            this.height = cloneMe.height;
+            this.misc = cloneMe.misc;
+        }
+
+        public FSHEntryHeader Clone()
+        {
+            return new FSHEntryHeader(this);
         }
     }
     
