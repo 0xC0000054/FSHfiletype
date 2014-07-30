@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Windows.Forms;
 using FSHfiletype.Properties;
@@ -37,9 +38,14 @@ namespace FSHfiletype
                             IsBackground = (i == 0)
                         };
 
+                        string base64MetaData = string.Empty;
+                        using (MemoryStream stream = new MemoryStream())
+                        {
+                            new BinaryFormatter().Serialize(stream, bmpitem.MetaData);
+                            base64MetaData = Convert.ToBase64String(stream.GetBuffer());
+                        }
 
-
-                        bl.Metadata.SetUserValue(fshMetadata, bmpitem.MetaData.ToString());
+                        bl.Metadata.SetUserValue(fshMetadata, base64MetaData);
 
                         doc.Layers.Add(bl);
                     }
@@ -102,98 +108,58 @@ namespace FSHfiletype
                     dirText = "0000";
                 }
 
-                int count = input.Layers.Count;
-                List<FshMetadata> metaData = new List<FshMetadata>(count);
-                Encoding ascii = Encoding.ASCII;
-                byte[] dirName = ascii.GetBytes(dirText);
+                int layerCount = input.Layers.Count;
+                List<FshMetadata> metaData = new List<FshMetadata>(layerCount);
+                byte[] dirName = Encoding.ASCII.GetBytes(dirText);
 
-                for (int i = 0; i < count; i++)
+                for (int i = 0; i < layerCount; i++)
                 {
-                    Layer item = (Layer)input.Layers[i];
-                    string val = item.Metadata.GetUserValue(fshMetadata);
-                    if (!string.IsNullOrEmpty(val))
+                    Layer layer = (Layer)input.Layers[i];
+                    string encodedMetaData = layer.Metadata.GetUserValue(fshMetadata);
+                    if (!string.IsNullOrEmpty(encodedMetaData))
                     {
-                        metaData.Add(new FshMetadata(val, item.Size));
+                        if (encodedMetaData.Contains(","))
+                        {
+                            metaData.Add(FshMetadata.FromEncodedString(encodedMetaData));
+                        }
+                        else
+                        {
+                            BinaryFormatter formatter = new BinaryFormatter() { Binder = new SelfBinder() };
+
+                            byte[] data = Convert.FromBase64String(encodedMetaData);
+
+                            using (MemoryStream stream = new MemoryStream(data))
+                            {
+                                FshMetadata meta = (FshMetadata)formatter.Deserialize(stream);
+
+                                metaData.Add(meta);
+                            }
+                        }
                     }
                     else
                     {
-                        metaData.Add(new FshMetadata(dirName, item.Size));
+                        metaData.Add(new FshMetadata(dirName));
                     }
                 }
 
                 //write header
-                output.Write(ascii.GetBytes("SHPI"), 0, 4); // write SHPI id
-                output.Write(BitConverter.GetBytes(0), 0, 4); // placeholder for the length
-                output.Write(BitConverter.GetBytes(count), 0, 4); // write the number of bitmaps in the list
-                output.Write(ascii.GetBytes("G264"), 0, 4); // header directory
+                FSHHeader header = new FSHHeader(layerCount, "G264");
+                header.Save(output);
 
+                FSHDirEntry[] dirs = new FSHDirEntry[layerCount];
 
-                int fshlen = 16 + (8 * count); // fsh length
-                int bmpw, bmph, attachCode;
-                for (int i = 0; i < count; i++)
+                long directoryStart = output.Position;
+
+                for (int i = 0; i < layerCount; i++)
                 {
-                    FshMetadata meta = metaData[i];
-                    output.Write(meta.DirName, 0, 4);
-                    output.Write(BitConverter.GetBytes(fshlen), 0, 4);
-
-                    MipData mips = meta.MipData;
-                    for (int j = 0; j <= mips.count; j++)
-                    {
-                        bmpw = (mips.layerWidth >> j);
-                        bmph = (mips.layerHeight >> j);
-
-                        if (format == FshFileFormat.DXT1)
-                        {
-                            bmpw += (4 - bmpw) & 3; // 4x4 blocks
-                            bmph += (4 - bmph) & 3;
-                        }
-
-                        int imageDataLength = GetBmpDataSize(bmpw, bmph, format);
-
-                        if (!mips.hasPadding && format != FshFileFormat.DXT1 || mips.hasPadding && j == mips.count)
-                        {
-                            int padding = (16 - imageDataLength) & 15;
-                            if (padding > 0)
-                            {
-                                imageDataLength += padding; // pad to a 16 byte boundary
-                            }
-                        }
-
-                        fshlen += imageDataLength;
-                    }
-                    
-                    if (meta.Attachments != null)
-                    {
-                        int dataLen;
-                        foreach (FSHAttachment item in meta.Attachments)
-                        {
-                            dataLen = item.data.Length;
-
-                            if (item.isBinary)
-                            {
-                                fshlen += dataLen;
-                            }
-                            else
-                            { 
-                                attachCode = item.header.code & 0xff;
-                                switch (attachCode)
-                                {
-                                    case 0x6f: // TXT
-                                        fshlen += (8 + dataLen);
-                                        break;
-                                    case 0x69: // ETXT full header
-                                        fshlen += (16 + dataLen);
-                                        break;
-                                    case 0x70: // ETXT 16 bytes
-                                        fshlen += 16;
-                                        break;
-                                }
-                            }
-                        }
-                    }
+                    // Write a placeholder for the directories, the real offsets will be written after the images have been saved. 
+                    dirs[i] = new FSHDirEntry(metaData[i].DirName);
+                    dirs[i].Save(output);
                 }
 
-                for (int i = 0; i < count; i++)
+                int bmpw, bmph, attachCode;
+
+                for (int i = 0; i < layerCount; i++)
                 {
                     BitmapLayer bl = (BitmapLayer)input.Layers[i];
 
@@ -228,9 +194,11 @@ namespace FSHfiletype
 
                     long entryStart = output.Position;
 
-                    output.Write(BitConverter.GetBytes(code), 0, 4);
-                    output.Write(BitConverter.GetBytes((ushort)bl.Width), 0, 2);
-                    output.Write(BitConverter.GetBytes((ushort)bl.Height), 0, 2);
+                    dirs[i].offset = (int)entryStart;
+
+                    output.WriteInt32(code);
+                    output.WriteUInt16((ushort)bl.Width);
+                    output.WriteUInt16((ushort)bl.Height);
 
                     FshMetadata meta = metaData[i];
 
@@ -244,7 +212,7 @@ namespace FSHfiletype
 
                     for (int j = 0; j < 4; j++)
                     {
-                        output.Write(BitConverter.GetBytes(misc[j]), 0, 2);
+                        output.WriteUInt16(misc[j]);
                     }
 
                     int width = bl.Width;
@@ -306,9 +274,9 @@ namespace FSHfiletype
 
                         if (meta.EntryCompressed)
                         {
-                            byte[] comp = QfsComp.Comp(ms.ToArray(), false);
+                            byte[] comp = QfsComp.Compress(ms.GetBuffer(), false);
 
-                            if (comp != null)
+                            if (comp != null && comp.Length < ms.Length)
                             {
                                 output.Write(comp, 0, comp.Length);
                                 code |= 0x80;
@@ -326,62 +294,84 @@ namespace FSHfiletype
 
                     }
 
-                    if (mip.count > 0 || compressed)
+                    // Write the section length if the entry has mipmaps, is compressed or has attachments.
+                    if (mip.count > 0 || compressed || meta.Attachments != null)
                     {
                         long newPosition = output.Position;
                         long sectionLength = newPosition - entryStart;
                         int newCode = (((int)sectionLength << 8) | code);
 
                         output.Seek(entryStart, SeekOrigin.Begin);
-                        output.Write(BitConverter.GetBytes(newCode), 0, 4);
+                        output.WriteInt32(newCode);
                         output.Seek(newPosition, SeekOrigin.Begin);
                     }
 
-                    List<FSHAttachment> attach = meta.Attachments;
-                    if (attach != null)
+                    // write any attachments
+                    if (meta.Attachments != null)
                     {
-                        foreach (FSHAttachment item in attach)
-                        {
-                            if (item.data.Length > 0)
+                        foreach (FSHAttachment item in meta.Attachments)
+                        {                                
+
+                            if (item.isBinary)
                             {
-                                if (item.isBinary)
+                                if (item.data.Length > 0)
                                 {
+                                    output.WriteInt32(item.header.code);
                                     output.Write(item.data, 0, item.data.Length);
                                 }
-                                else
-                                {
-                                    attachCode = item.header.code & 0xff;
-
-                                    output.Write(BitConverter.GetBytes(item.header.code), 0, 4);
-
-                                    if (attachCode != 0x70)
-                                    {
-                                        output.Write(BitConverter.GetBytes(item.header.width), 0, 2);
-                                        output.Write(BitConverter.GetBytes(item.header.height), 0, 2);
-                                    }
-
-                                    switch (attachCode)
-                                    {
-                                        case 0x6f: // TXT
-                                        case 0x70: // ETXT 16 bytes
-                                            output.Write(item.data, 0, item.data.Length);
-                                            break;
-                                        case 0x69: // ETXT full header
-                                            for (int m = 0; m < 4; m++)
-                                            {
-                                                output.Write(BitConverter.GetBytes(item.header.misc[m]), 0, 2);
-                                            }
-                                            output.Write(item.data, 0, item.data.Length);
-                                            break;
-                                    }
-                                } 
                             }
+                            else
+                            {
+                                output.WriteInt32(item.header.code);
+                                attachCode = item.header.code & 0xff;
+
+                                if (attachCode != 0x70)
+                                {
+                                    output.WriteUInt16(item.header.width);
+                                    output.WriteUInt16(item.header.height);
+                                }
+                                
+                                if (attachCode == 0x69 || attachCode == 0x7c)
+                                {
+                                    for (int m = 0; m < 4; m++)
+                                    {
+                                        output.WriteUInt16(item.header.misc[m]);
+                                    }
+                                }
+
+                                switch (attachCode)
+                                {
+                                    case 0x6f: // TXT
+                                    case 0x70: // ETXT 16 bytes
+                                        output.Write(item.data, 0, item.data.Length);
+                                        break;
+                                    case 0x69: // ETXT full header
+                                        output.Write(item.data, 0, item.data.Length);
+                                        break;
+                                    case 0x7c: // Pixel region, this only uses the misc fields in the header.
+                                        break;
+                                }
+                            }
+
                         }
                     }
+
                 }
 
-                output.Seek(4L, SeekOrigin.Begin);
-                output.Write(BitConverter.GetBytes(output.Length), 0, 4);
+                // Write the final length and directory offset.
+
+                header.Size = (int)output.Length;
+                
+                output.Position = 0L;
+
+                header.Save(output);
+
+                output.Seek(directoryStart, SeekOrigin.Begin);
+
+                for (int i = 0; i < dirs.Length; i++)
+                {
+                    dirs[i].Save(output);
+                }
             }
             catch (Exception ex)
             {
@@ -536,6 +526,15 @@ namespace FSHfiletype
             return data;
         }
 
-
+        /// <summary>
+        /// Binds the serialization to types in the currently loaded assembly. 
+        /// </summary>
+        private sealed class SelfBinder : System.Runtime.Serialization.SerializationBinder
+        {
+            public override Type BindToType(string assemblyName, string typeName)
+            {
+                return Type.GetType(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0},{1}", typeName, assemblyName));
+            }
+        }
     }
 }
