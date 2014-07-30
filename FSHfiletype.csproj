@@ -67,18 +67,14 @@
   </Target>
   -->
   <ItemGroup>
-    <Reference Include="PaintDotNet.Base">
-      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.Base.dll</HintPath>
+    <Reference Include="PaintDotNet.Base, Version=3.511.4977.23436, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\PSFilterPdn\References\PaintDotNet.Base.dll</HintPath>
     </Reference>
-    <Reference Include="PaintDotNet.Core">
-      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.Core.dll</HintPath>
+    <Reference Include="PaintDotNet.Core, Version=3.511.4977.23444, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\PSFilterPdn\References\PaintDotNet.Core.dll</HintPath>
     </Reference>
-    <Reference Include="PaintDotNet.Data">
-      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.Data.dll</HintPath>
-    </Reference>
-    <Reference Include="PaintDotNet.SystemLayer, Version=3.58.4081.24580, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\PSFilterPdn\Refrences\PaintDotNet.SystemLayer.dll</HintPath>
+    <Reference Include="PaintDotNet.Data, Version=3.511.4977.23447, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\PSFilterPdn\References\PaintDotNet.Data.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
@@ -99,6 +95,7 @@
     <Compile Include="FshHeaders.cs" />
     <Compile Include="FshImageLoad.cs" />
     <Compile Include="FshLoadBitmapItem.cs" />
+    <Compile Include="FshMetadata.cs" />
     <Compile Include="PropertyNames.cs" />
     <Compile Include="QfsComp.cs" />
     <Compile Include="FshFiletype.cs" />
