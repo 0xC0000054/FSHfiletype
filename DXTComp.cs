@@ -139,7 +139,7 @@ namespace FSHfiletype
 				int c = codes[i];
 				int d = codes[4 + i];
 
-				if (isDxt1 && a <= b) // dxt 1 alpha is a special case
+				if (isDxt1 && a <= b) // dxt1 alpha is a special case
 				{
 					codes[8 + i] = (byte)((c + d) / 2);
 					codes[12 + i] = 0;
@@ -230,7 +230,7 @@ namespace FSHfiletype
 					stride++;
 				} 
 
-				ulong* dxtPixels = stackalloc ulong[16];
+				uint* dxtPixels = stackalloc uint[16];
 				fixed (byte* ptr = comp)
 				{
 				  
@@ -247,7 +247,7 @@ namespace FSHfiletype
 								for (int j = 0; j < 4; j++)
 								{
 									ofs = 4 * j;
-									dxtPixels[dxtRow + j] = (ulong)((p[ofs] + (p[ofs + 1] << 8)) + (p[ofs + 2] << 16));
+									dxtPixels[dxtRow + j] = (uint)((p[ofs] + (p[ofs + 1] << 8)) + (p[ofs + 2] << 16));
 								}
 							}
 
@@ -267,7 +267,7 @@ namespace FSHfiletype
 
 			int height2 = height / 4;
 			int width2 = width / 4;
-			int row, col, ofs, row2;
+			int row, col, ofs, dxtRow;
 
 
 			int stride = 4 * width;
@@ -278,7 +278,7 @@ namespace FSHfiletype
 
 			fixed (byte* dst = comp)
 			{
-				ulong* dxtPixels = stackalloc ulong[16];
+				uint* dxtPixels = stackalloc uint[16];
 
 				for (int y = 0; y < height2; y++)
 				{
@@ -288,14 +288,14 @@ namespace FSHfiletype
 						col = 16 * x;
 						for (int i = 0; i < 4; i++)
 						{
-							row2 = 4 * i;
+							dxtRow = 4 * i;
 							byte* p = (scan0 + ((row + i) * stride)) + col;
 
 							for (int j = 0; j < 4; j++)
 							{
 								ofs = 4 * j;
 
-								dxtPixels[row2 + j] = (ulong)(p[ofs] +  (p[ofs + 1] << 8) + (p[ofs + 2] << 16));
+								dxtPixels[dxtRow + j] = (uint)(p[ofs] +  (p[ofs + 1] << 8) + (p[ofs + 2] << 16));
 							}
 						}
 
@@ -310,11 +310,11 @@ namespace FSHfiletype
 					{
 						ofs = 16 * x;
 						col = ofs + 3; // get the alpha offset
-						row2 = row * width;
+						dxtRow = row * width;
 						for (int i = 0; i < 4; i++)
 						{
 							byte* p = (scan0 + ((row + i) * stride)) + col;
-							byte* tgt = dst + (row2 + ofs) + 2 * i;
+							byte* tgt = dst + (dxtRow + ofs) + 2 * i;
 
 							tgt[0] = (byte)(((p[0] & 0xf0) >> 4) + (p[4] & 0xf0));
 							tgt[1] = (byte)(((p[8] & 0xf0) >> 4) + (p[12] & 0xf0));
@@ -328,22 +328,22 @@ namespace FSHfiletype
 		}
 
 		#region FSHTool DXT code
-		private static unsafe void PackDXT(ulong* px, byte* dest)
+		private static unsafe void PackDXT(uint* px, byte* dest)
 		{           
-			ulong[] uniq = new ulong[0x10];
+			uint[] uniq = new uint[0x10];
 
 			int i, j;
-			ulong col1;
-			ulong col2;
+			uint col1;
+			uint col2;
 			int nstep = 0;
 			int bestErr = 0;
-			ulong bestCol1 = 0L;
-			ulong bestCol2 = 0L;
+			uint bestCol1 = 0;
+			uint bestCol2 = 0;
 			int nColors = 0;
 
 			for (i = 0; i < 0x10; i++)
 			{
-				col1 = px[i] & 0xf8fcf8UL;
+				col1 = px[i] & 0xf8fcf8U;
 				j = 0;
 				while (j < nColors)
 				{
@@ -362,7 +362,7 @@ namespace FSHfiletype
 			{
 				bestCol1 = uniq[0];
 				bestCol2 = uniq[0];
-				bestErr = 0x3e8;
+				bestErr = 1000;
 				nstep = 3;
 			}
 			else
@@ -411,7 +411,7 @@ namespace FSHfiletype
 			ScoreDXT(px, nstep, bestCol1, bestCol2, (ulong*)(dest + 4));
 		}
 
-		private static unsafe int ScoreDXT(ulong* px, int nstep, ulong col1, ulong col2, ulong* pack)
+		private static unsafe int ScoreDXT(uint* px, int nstep, uint col1, uint col2, ulong* pack)
 		{
 			int[] vec = new int[3];
 			int[] vdir = new int[3];
@@ -430,9 +430,9 @@ namespace FSHfiletype
 			byte* ptr = (byte*)(px + 15);
 			int i = 15;
 			int choice;
+			
 			while (i >= 0)
 			{
-				
 				vec[0] = ptr[0] - c1[0];
 				vec[1] = ptr[1] - c1[1];
 				vec[2] = ptr[2] - c1[2];
@@ -469,20 +469,11 @@ namespace FSHfiletype
 				}
 
 				i--;
-				ptr = (byte*)(px + i);
+				ptr -= 4;
 			}
 			
 			return score;
 		}
-
-		private static int LengthSquared(int[] vec)
-		{
-			return LengthSquared(vec, vec);
-		}
-		private static int LengthSquared(int[] lhs, int[] rhs)
-		{
-			return ((lhs[0] * rhs[0]) + (lhs[1] * rhs[1]) + (lhs[2] * rhs[2]));
-		} 
 	#endregion
 	}
 }
