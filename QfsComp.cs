@@ -6,6 +6,12 @@ namespace FSHfiletype
 {
     static class QfsComp
     {
+        /// <summary>
+        /// Decompresses a QFS compressed <see cref="System.IO.Stream"/>
+        /// </summary>
+        /// <param name="input">The <see cref="System.IO.Stream"/> to decompress.</param>
+        /// <returns>A byte array containing the decompressed data.</returns>
+        /// <exception cref="NotSupportedException"><paramref name="input"/> has an unknown compression format.</exception>
         public static byte[] Decompress(Stream input)
         {
             byte[] bytes = new byte[input.Length];
@@ -15,10 +21,10 @@ namespace FSHfiletype
         }
 
         /// <summary>
-        /// Decompresses an QFS Compressed File
+        /// Decompresses a QFS compressed byte array
         /// </summary>
-        /// <param name="compressedData">The byte array to decompress</param>
-        /// <returns>A MemoryStream containing the decompressed data</returns>
+        /// <param name="compressedData">The byte array to decompress.</param>
+        /// <exception cref="NotSupportedException"><paramref name="compressedData"/> has an unknown compression format.</exception>
         public unsafe static byte[] Decompress(byte[] compressedData)
         {
             if (compressedData == null)
@@ -55,10 +61,10 @@ namespace FSHfiletype
                 index = 8;
             }
 
-            byte ccbyte1 = 0; // control char 0
-            byte ccbyte2 = 0; // control char 1
-            byte ccbyte3 = 0; // control char 2
-            byte ccbyte4 = 0; // control char 3
+            byte ccbyte1 = 0; // control char 1
+            byte ccbyte2 = 0; // control char 2
+            byte ccbyte3 = 0; // control char 3
+            byte ccbyte4 = 0; // control char 4
 
             int plainCount = 0;
             int copyCount = 0;
@@ -189,7 +195,7 @@ namespace FSHfiletype
             }
 
             int inlen = (int)input.Length;
-            byte[] inbuf = new byte[(inlen + 1028)]; // 1028 byte safety buffer
+            byte[] inbuf = new byte[inlen + 1028]; // 1028 byte safety buffer
             Buffer.BlockCopy(input, 0, inbuf, 0, input.Length);
 
             int[] similar_rev = new int[CompMaxLen];
@@ -267,7 +273,7 @@ namespace FSHfiletype
                     }
                     if (bestlen > 0)
                     {
-                        while ((index - lastwrot) >= 4)
+                        while ((index - lastwrot) >= 4) // 1 byte op code 0xE0 - 0xFB
                         {
                             len = ((index - lastwrot) / 4) - 1;
                             if (len > 0x1b)
@@ -286,7 +292,7 @@ namespace FSHfiletype
                             outIndex += len;
                         }
                         len = index - lastwrot;
-                        if ((bestlen <= 10) && (bestoffs <= 1024))
+                        if ((bestlen <= 10) && (bestoffs <= 1024)) // 2 byte op code  0x00 - 0x7f
                         {
                             outbuf[outIndex++] = (byte)(((((bestoffs - 1) >> 8) << 5) + ((bestlen - 3) << 2)) + len);
                             outbuf[outIndex++] = (byte)((bestoffs - 1) & 0xff);
@@ -302,7 +308,7 @@ namespace FSHfiletype
                             }
                             lastwrot += bestlen;
                         }
-                        else if ((bestlen <= 67) && (bestoffs <= 16384))
+                        else if ((bestlen <= 67) && (bestoffs <= 16384))  // 3 byte op code 0x80 - 0xBF
                         {
                             outbuf[outIndex++] = (byte)(0x80 + (bestlen - 4));
                             outbuf[outIndex++] = (byte)((len << 6) + ((bestoffs - 1) >> 8));
@@ -319,7 +325,7 @@ namespace FSHfiletype
                             }
                             lastwrot += bestlen;
                         }
-                        else if ((bestlen <= QfsMaxBlockSize) && (bestoffs < CompMaxLen)) // 0x20
+                        else if ((bestlen <= QfsMaxBlockSize) && (bestoffs < CompMaxLen)) // 4 byte op code 0xC0 - 0xFB
                         {
                             bestoffs--;
                             outbuf[outIndex++] = (byte)(((0xc0 + ((bestoffs >> 0x10) << 4)) + (((bestlen - 5) >> 8) << 2)) + len);
@@ -343,7 +349,7 @@ namespace FSHfiletype
             }
             index = inlen;
             // write the end data
-            while ((index - lastwrot) >= 4)
+            while ((index - lastwrot) >= 4) // 1 byte op code 0xE0 - 0xFB
             {
                 len = ((index - lastwrot) / 4) - 1;
                 if (len > 0x1b)
@@ -369,8 +375,8 @@ namespace FSHfiletype
                 return null;
             }
 
+            // 1 byte EOF op code 0xFC - 0xFF 
             outbuf[outIndex++] = (byte)(0xfc + len);
-
 
             while (len-- > 0)
             {
