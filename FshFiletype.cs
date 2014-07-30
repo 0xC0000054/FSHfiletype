@@ -1,18 +1,9 @@
-using System;
-using System.Diagnostics;
-using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Text;
 using System.IO;
-using PaintDotNet;
-using PaintDotNet.Data;
-using System.Windows.Forms;
-using System.Runtime.InteropServices;
-using PaintDotNet.PropertySystem;
-using PaintDotNet.IndirectUI;
 using FSHfiletype.Properties;
+using PaintDotNet;
+using PaintDotNet.IndirectUI;
+using PaintDotNet.PropertySystem;
 
 namespace FSHfiletype
 {

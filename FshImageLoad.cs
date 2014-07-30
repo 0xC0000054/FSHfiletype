@@ -1,14 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Collections;
 using System.IO;
 using FSHfiletype.Properties;
-using PaintDotNet.IO;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using PaintDotNet;
 
 namespace FSHfiletype

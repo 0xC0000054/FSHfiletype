@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using PaintDotNet;
 
 namespace FSHfiletype
 {
-    internal class FshLoadBitmapItem : IDisposable
+    internal sealed class FshLoadBitmapItem : IDisposable
     {
         private Surface surface;
         private FshMetadata metaData;
@@ -34,10 +31,6 @@ namespace FSHfiletype
             {
                 metaData = value;
             }
-        }
-
-        public FshLoadBitmapItem()
-        {
         }
 
         public FshLoadBitmapItem(int width, int height) 
