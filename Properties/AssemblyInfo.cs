@@ -5,12 +5,24 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Fsh FileType Plugin")]
-[assembly: AssemblyDescription("Fsh FileType plugin for Paint.NET")]
+[assembly: AssemblyTitle("Electronic Arts® Fsh FileType plugin for Paint.NET")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
+
+#if SC4D
 [assembly: AssemblyCompany("null45")]
+#else
+[assembly: AssemblyCompany("null54")]
+#endif
+
 [assembly: AssemblyProduct("FSHfiletype")]
-[assembly: AssemblyCopyright("Copyright © 2011")]
+
+#if SC4D
+[assembly: AssemblyCopyright("Copyright © 2009-2014 Nicholas Hayes")]
+#else
+[assembly: AssemblyCopyright("Copyright © 2009-2014 Nicholas Hayes (aka null54)")]
+#endif
+
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -29,5 +41,5 @@ using System.Runtime.InteropServices;
 //      Build Number
 //      Revision
 //
-[assembly: AssemblyVersion("1.2.2.1")]
-[assembly: AssemblyFileVersion("1.2.2.1")]
+[assembly: AssemblyVersion("1.2.2.6")]
+[assembly: AssemblyFileVersion("1.2.2.6")]
