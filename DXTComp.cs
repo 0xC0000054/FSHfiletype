@@ -47,7 +47,7 @@ namespace FSHfiletype
 									// get the target location
 									int sx = x + px;
 
-									if (sy < width && sy < height)
+									if (sx < width && sy < height)
 									{
 										targetPixel = rgba + 4 * (stride + sx);
 
