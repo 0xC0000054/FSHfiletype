@@ -261,7 +261,7 @@ namespace FSHfiletype
                             byte[] data = SaveImageData(surf, format, dataLen);
 
 
-                            if (!mip.hasPadding && format != FshFileFormat.DXT1 || mip.hasPadding && j == mip.count)
+                            if (format != FshFileFormat.DXT1  && !mip.hasPadding || format == FshFileFormat.DXT1 && j == mip.count)
                             {
                                 while ((dataLen & 15) > 0)
                                 {
@@ -311,26 +311,14 @@ namespace FSHfiletype
                     {
                         foreach (FSHAttachment item in meta.Attachments)
                         {                                
+                            output.WriteInt32(item.header.code);
+                            attachCode = item.header.code & 0xff;
 
-                            if (item.isBinary)
+                            if (attachCode == 0x6f || attachCode == 0x69 || attachCode == 0x7c)
                             {
-                                if (item.data.Length > 0)
-                                {
-                                    output.WriteInt32(item.header.code);
-                                    output.Write(item.data, 0, item.data.Length);
-                                }
-                            }
-                            else
-                            {
-                                output.WriteInt32(item.header.code);
-                                attachCode = item.header.code & 0xff;
+                                output.WriteUInt16(item.header.width);
+                                output.WriteUInt16(item.header.height);
 
-                                if (attachCode != 0x70)
-                                {
-                                    output.WriteUInt16(item.header.width);
-                                    output.WriteUInt16(item.header.height);
-                                }
-                                
                                 if (attachCode == 0x69 || attachCode == 0x7c)
                                 {
                                     for (int m = 0; m < 4; m++)
@@ -338,21 +326,14 @@ namespace FSHfiletype
                                         output.WriteUInt16(item.header.misc[m]);
                                     }
                                 }
-
-                                switch (attachCode)
-                                {
-                                    case 0x6f: // TXT
-                                    case 0x70: // ETXT 16 bytes
-                                        output.Write(item.data, 0, item.data.Length);
-                                        break;
-                                    case 0x69: // ETXT full header
-                                        output.Write(item.data, 0, item.data.Length);
-                                        break;
-                                    case 0x7c: // Pixel region, this only uses the misc fields in the header.
-                                        break;
-                                }
                             }
 
+                            byte[] data = item.data;
+
+                            if ((data != null) && data.Length > 0)
+                            {
+                                output.Write(data, 0, data.Length);
+                            }
                         }
                     }
 
