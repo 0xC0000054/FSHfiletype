@@ -18,9 +18,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyProduct("FSHfiletype")]
 
 #if SC4D
-[assembly: AssemblyCopyright("Copyright © 2009-2014 Nicholas Hayes")]
+[assembly: AssemblyCopyright("Copyright © 2009-2015 Nicholas Hayes")]
 #else
-[assembly: AssemblyCopyright("Copyright © 2009-2014 Nicholas Hayes (aka null54)")]
+[assembly: AssemblyCopyright("Copyright © 2009-2015 Nicholas Hayes (aka null54)")]
 #endif
 
 [assembly: AssemblyTrademark("")]
@@ -41,5 +41,5 @@ using System.Runtime.InteropServices;
 //      Build Number
 //      Revision
 //
-[assembly: AssemblyVersion("1.2.2.6")]
-[assembly: AssemblyFileVersion("1.2.2.6")]
+[assembly: AssemblyVersion("1.2.4.0")]
+[assembly: AssemblyFileVersion("1.2.4.0")]
